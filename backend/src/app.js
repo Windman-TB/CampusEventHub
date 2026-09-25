@@ -1,6 +1,8 @@
+require("dotenv").config(); 
+
 const express = require("express");
 const cors = require("cors");
-require("dotenv").config();
+const supabase = require("./config/supabase");
 
 const app = express();
 
@@ -18,7 +20,32 @@ app.get("/api/health", (req, res) => {
     });
 });
 
+app.get("/api/health/db", async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("chuyen_de")
+      .select("ma_chuyen_de, ten_chuyen_de")
+      .limit(1);
+
+    if (error) {
+      throw error;
+    }
+
+    res.json({
+      status: "ok",
+      message: "Database connection successful",
+      data,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: "Database connection failed",
+      error: error.message,
+    });
+  }
+});
+
 // Start server
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server is running on port ${PORT}`);
 });

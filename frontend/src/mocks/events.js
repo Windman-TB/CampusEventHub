@@ -8,6 +8,6 @@ export const events = [
     capacity: 100,
     registeredCount: 65,
     status: "SapToChuc",
-    imageUrl: "/placeholder.jpg",
+    imageUrl: null,
   },
 ];
