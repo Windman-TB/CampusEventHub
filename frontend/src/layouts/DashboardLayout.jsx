@@ -93,6 +93,7 @@ function SidebarContent({ onNavigate }) {
           </div>
         </div>
         <button
+          onClick={() => window.location.href = '/login'}
           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all hover:bg-red-50"
           style={{ color: '#94a3b8' }}>
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

@@ -19,7 +19,7 @@ export default function CheckInPage() {
           <h1 className="font-bold text-xl">Điểm danh</h1>
           <p className="text-xs text-slate-400">Campus Event Hub</p>
         </div>
-        <button className="px-4 py-2 bg-white/10 rounded-xl text-sm font-medium">Thoát</button>
+        <button onClick={() => window.location.href = '/login'} className="px-4 py-2 bg-white/10 rounded-xl text-sm font-medium">Thoát</button>
       </div>
 
       <div className="mb-6">

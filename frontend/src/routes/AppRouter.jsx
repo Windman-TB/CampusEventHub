@@ -9,11 +9,15 @@ import EventManagementPage from "../pages/EventManagementPage";
 import EventFormPage from "../pages/EventFormPage";
 import ParticipantsPage from "../pages/ParticipantsPage";
 import StaffPage from "../pages/StaffPage";
+import LoginPage from "../pages/LoginPage";
 
 function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Auth Route */}
+        <Route path="/login" element={<LoginPage />} />
+
         {/* Student routes */}
         <Route path="/" element={<HomePage />} />
         <Route path="/events/:eventId" element={<EventDetailPage />} />
