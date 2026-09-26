@@ -20,15 +20,15 @@ export default function ProfilePage() {
         </div>
 
         <div className="space-y-3">
-          <button className="w-full bg-slate-50 border border-slate-100 p-4 rounded-2xl flex justify-between items-center text-sm font-medium text-slate-700">
+          <button onClick={() => alert("Tính năng đang phát triển")} className="w-full bg-slate-50 border border-slate-100 p-4 rounded-2xl flex justify-between items-center text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors">
             <span>Thông tin cá nhân</span>
             <span>›</span>
           </button>
-          <button className="w-full bg-slate-50 border border-slate-100 p-4 rounded-2xl flex justify-between items-center text-sm font-medium text-slate-700">
+          <button onClick={() => alert("Tính năng đang phát triển")} className="w-full bg-slate-50 border border-slate-100 p-4 rounded-2xl flex justify-between items-center text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors">
             <span>Lịch sử điểm danh</span>
             <span>›</span>
           </button>
-          <button className="w-full bg-slate-50 border border-slate-100 p-4 rounded-2xl flex justify-between items-center text-sm font-medium text-slate-700">
+          <button onClick={() => alert("Tính năng đang phát triển")} className="w-full bg-slate-50 border border-slate-100 p-4 rounded-2xl flex justify-between items-center text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors">
             <span>Cài đặt thông báo</span>
             <span>›</span>
           </button>

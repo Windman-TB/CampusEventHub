@@ -270,9 +270,54 @@ export default function LoginPage() {
                 <h2 className="font-bold text-xl mb-1 text-slate-900">
                   Tạo tài khoản mới
                 </h2>
-                <p className="text-sm mb-6 text-slate-400">
-                  Tính năng này chỉ có trong bản chính thức. Vui lòng dùng tài khoản Demo.
+                <p className="text-sm mb-5 text-slate-400">
+                  Điền thông tin sinh viên của bạn
                 </p>
+
+                <form onSubmit={handleSubmit} className="space-y-3">
+                  <FormField label="Họ và tên" placeholder="Nguyễn Văn A" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField label="MSSV" placeholder="2252xxxx" />
+                    <FormField label="Số điện thoại" placeholder="09xx xxx xxx" />
+                  </div>
+                  <FormField
+                    label="Email sinh viên"
+                    type="email"
+                    placeholder="mssv@gm.uit.edu.vn"
+                  />
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5 text-slate-600">
+                      Khoa / Viện
+                    </label>
+                    <select
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none transition-all focus:border-indigo-600"
+                    >
+                      <option>Công nghệ Thông tin</option>
+                      <option>Khoa học Máy tính</option>
+                      <option>Hệ thống Thông tin</option>
+                      <option>An toàn Thông tin</option>
+                      <option>Mạng máy tính & TT</option>
+                    </select>
+                  </div>
+                  <FormField
+                    label="Mật khẩu"
+                    type="password"
+                    placeholder="Tối thiểu 6 ký tự"
+                  />
+                  <FormField
+                    label="Xác nhận mật khẩu"
+                    type="password"
+                    placeholder="Nhập lại mật khẩu"
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full mt-5 py-3 flex items-center justify-center rounded-xl font-semibold text-white transition-all bg-indigo-600 hover:bg-indigo-700 disabled:opacity-70"
+                  >
+                    {loading ? "Đang xử lý..." : "Đăng ký tài khoản"}
+                  </button>
+                </form>
               </>
             )}
           </div>
