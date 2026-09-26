@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MOCK_EVENTS, getEventStatusLabel, getEventStatusColors, TOPIC_LABELS, TOPIC_COLORS } from '../mocks/mockData';
+import MainLayout from '../layouts/MainLayout';
 
 const TOPIC_LIST = Object.keys(TOPIC_LABELS);
 
@@ -16,7 +17,7 @@ export default function HomePage() {
   });
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ background: '#f4f5f9' }}>
+    <MainLayout>
       <div className="bg-white sticky top-0 z-10 shadow-sm px-4 py-4">
         <div className="flex items-center justify-between mb-3 max-w-screen-xl mx-auto">
           <div>
@@ -80,6 +81,6 @@ export default function HomePage() {
           })}
         </div>
       </div>
-    </div>
+    </MainLayout>
   );
 }
