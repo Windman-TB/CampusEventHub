@@ -224,9 +224,9 @@ export default function LoginPage() {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <FormField
-                    label="Email"
-                    type="email"
-                    placeholder="email@uit.edu.vn"
+                    label="Email hoặc MSSV"
+                    type="text"
+                    placeholder="email@uit.edu.vn hoặc 2252xxxx"
                     value={email}
                     onChange={setEmail}
                   />
