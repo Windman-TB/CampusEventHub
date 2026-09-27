@@ -11,6 +11,7 @@ import EventFormPage from "../pages/EventFormPage";
 import ParticipantsPage from "../pages/ParticipantsPage";
 import StaffPage from "../pages/StaffPage";
 import LoginPage from "../pages/LoginPage";
+import TicketConfirmPage from "../pages/TicketConfirmPage";
 
 function AppRouter() {
   return (
@@ -25,6 +26,7 @@ function AppRouter() {
         <Route path="/tickets" element={<TicketPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/check-in" element={<CheckInPage />} />
+        <Route path="/ticket-confirm" element={<TicketConfirmPage />} />
 
         {/* Organizer routes */}
         <Route path="/dashboard" element={<DashboardPage />} />

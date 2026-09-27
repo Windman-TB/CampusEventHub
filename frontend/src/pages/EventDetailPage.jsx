@@ -2,6 +2,12 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MOCK_EVENTS, getEventStatusLabel, getEventStatusColors, TOPIC_LABELS, TOPIC_COLORS } from '../mocks/mockData';
 
+// Tạo mã vé ngẫu nhiên dạng TKT-YYYY-XXXXXX
+function generateTicketId() {
+  const num = String(Math.floor(Math.random() * 999999)).padStart(6, '0');
+  return `TKT-${new Date().getFullYear()}-${num}`;
+}
+
 export default function EventDetailPage() {
   const { eventId } = useParams();
   const navigate = useNavigate();
@@ -75,9 +81,31 @@ export default function EventDetailPage() {
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t">
-        <button onClick={() => { if (!registered && event.status !== 'full') { setRegistering(true); setTimeout(() => { setRegistering(false); setRegistered(true); }, 1000); } }}
+        <button
+          onClick={() => {
+            if (registered) {
+              navigate('/tickets');
+              return;
+            }
+            if (event.status === 'full') return;
+            setRegistering(true);
+            setTimeout(() => {
+              setRegistering(false);
+              setRegistered(true);
+              navigate('/ticket-confirm', {
+                state: {
+                  ticketId: generateTicketId(),
+                  eventId: event.id,
+                  studentName: 'Nguyễn Văn A',
+                  studentId: '22521001',
+                  faculty: 'Công nghệ Thông tin',
+                },
+              });
+            }, 1000);
+          }}
           className="w-full py-3.5 rounded-xl font-bold"
-          style={{ background: ctaBg, color: ctaColor }}>
+          style={{ background: ctaBg, color: ctaColor }}
+        >
           {registering ? 'Đang xử lý...' : ctaLabel}
         </button>
       </div>
