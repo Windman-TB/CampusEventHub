@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import HomePage from "../pages/HomePage";
 import EventDetailPage from "../pages/EventDetailPage";
@@ -20,8 +20,11 @@ function AppRouter() {
         {/* Auth Route */}
         <Route path="/login" element={<LoginPage />} />
 
+        {/* Root → redirect to login */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+
         {/* Student routes */}
-        <Route path="/" element={<HomePage />} />
+        <Route path="/home" element={<HomePage />} />
         <Route path="/events/:eventId" element={<EventDetailPage />} />
         <Route path="/tickets" element={<TicketPage />} />
         <Route path="/profile" element={<ProfilePage />} />

@@ -8,7 +8,7 @@ const DEMO_ACCOUNTS = [
     bg: "#eef2ff",
     color: "#4f46e5",
     desc: "Khám phá và đăng ký sự kiện",
-    path: "/",
+    path: "/home",
   },
   {
     role: "organizer",
@@ -48,7 +48,7 @@ export default function LoginPage() {
       } else if (email.includes("checkin")) {
         navigate("/check-in");
       } else {
-        navigate("/");
+        navigate("/home");
       }
     }, 800);
   }

@@ -10,7 +10,7 @@ export default function MainLayout({ children }) {
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t z-50 pb-safe" style={{ borderColor: '#f1f5f9' }}>
         <div className="flex justify-around items-center h-16 max-w-screen-xl mx-auto">
-          <NavLink to="/" className={({ isActive }) => `flex flex-col items-center gap-1 w-16 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`}>
+          <NavLink to="/home" className={({ isActive }) => `flex flex-col items-center gap-1 w-16 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`}>
             <span className="text-xl">🏠</span>
             <span className="text-[10px] font-semibold">Khám phá</span>
           </NavLink>
