@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import HomePage from "../pages/HomePage";
 import EventDetailPage from "../pages/EventDetailPage";
@@ -11,6 +11,7 @@ import EventFormPage from "../pages/EventFormPage";
 import ParticipantsPage from "../pages/ParticipantsPage";
 import StaffPage from "../pages/StaffPage";
 import LoginPage from "../pages/LoginPage";
+import TicketConfirmPage from "../pages/TicketConfirmPage";
 
 function AppRouter() {
   return (
@@ -19,12 +20,16 @@ function AppRouter() {
         {/* Auth Route */}
         <Route path="/login" element={<LoginPage />} />
 
+        {/* Root → redirect to login */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+
         {/* Student routes */}
-        <Route path="/" element={<HomePage />} />
+        <Route path="/home" element={<HomePage />} />
         <Route path="/events/:eventId" element={<EventDetailPage />} />
         <Route path="/tickets" element={<TicketPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/check-in" element={<CheckInPage />} />
+        <Route path="/ticket-confirm" element={<TicketConfirmPage />} />
 
         {/* Organizer routes */}
         <Route path="/dashboard" element={<DashboardPage />} />
