@@ -1,9 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MOCK_EVENTS } from '../mocks/mockData';
+import { BottomNav, setStoredRole } from '../layouts/MainLayout';
 
 export default function CheckInPage() {
   const navigate = useNavigate();
+
+  // Đảm bảo role 'staff' được lưu để khi chuyển tab khác vẫn giữ đủ 4 mục BottomNav
+  useEffect(() => {
+    setStoredRole('staff');
+  }, []);
   const [tab, setTab] = useState('scan');
   const [manualCode, setManualCode] = useState('');
   const [flashOn, setFlashOn] = useState(false);
@@ -59,7 +65,7 @@ export default function CheckInPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ background: '#0f0f1a' }}>
+    <div className="flex flex-col min-h-screen pb-20" style={{ background: '#0f0f1a' }}>
       {/* Header with safe area */}
       <div className="px-4 pb-3" style={{ paddingTop: 16, paddingBottom: 12 }}>
         <div className="flex items-center justify-between">
@@ -300,6 +306,9 @@ export default function CheckInPage() {
           </div>
         </div>
       )}
+
+      {/* Staff CTV vẫn có bottom nav để quay về trang sinh viên */}
+      <BottomNav showCheckin={true} dark={true} />
     </div>
   );
 }

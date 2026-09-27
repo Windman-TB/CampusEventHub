@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { setStoredRole } from "../layouts/MainLayout";
 
 const DEMO_ACCOUNTS = [
   {
@@ -44,10 +45,13 @@ export default function LoginPage() {
     setTimeout(() => {
       setLoading(false);
       if (email.includes("org")) {
+        setStoredRole('organizer');
         navigate("/dashboard");
       } else if (email.includes("checkin")) {
+        setStoredRole('staff');
         navigate("/check-in");
       } else {
+        setStoredRole('student');
         navigate("/home");
       }
     }, 800);
@@ -57,6 +61,7 @@ export default function LoginPage() {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
+      setStoredRole(acc.role);   // ghi role vào localStorage
       navigate(acc.path);
     }, 600);
   }
