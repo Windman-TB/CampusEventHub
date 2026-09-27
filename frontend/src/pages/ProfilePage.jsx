@@ -1,21 +1,22 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import MainLayout from '../layouts/MainLayout';
+import MainLayout, { getStoredRole, clearStoredRole } from '../layouts/MainLayout';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
   const [editMode, setEditMode] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
 
-  // Giả lập thông tin user
+  // Giả lập thông tin user dựa theo role đăng nhập
+  const isStaff = getStoredRole() === 'staff';
   const [user, setUser] = useState({
     name: 'Nguyễn Văn A',
     studentId: '2252xxxx',
     faculty: 'Công nghệ Thông tin',
     email: '2252xxxx@gm.uit.edu.vn',
     phone: '0901234567',
-    role: 'Sinh viên',
-    initials: 'SV',
+    role: isStaff ? 'Sinh viên (CTV điểm danh)' : 'Sinh viên',
+    initials: isStaff ? 'CTV' : 'SV',
     avatar: null,
   });
 
@@ -130,7 +131,8 @@ export default function ProfilePage() {
             </button>
           </>
         ) : (
-          <button onClick={() => navigate('/login')}
+          <button
+            onClick={() => { clearStoredRole(); navigate('/login'); }}
             className="w-full py-3.5 rounded-2xl font-semibold text-sm bg-red-50 text-red-700 hover:bg-red-100">
             Đăng xuất
           </button>
