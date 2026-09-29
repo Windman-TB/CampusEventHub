@@ -35,6 +35,7 @@ function AppRouter() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/dashboard/events" element={<EventManagementPage />} />
         <Route path="/dashboard/events/new" element={<EventFormPage />} />
+        <Route path="/dashboard/events/edit/:id" element={<EventFormPage />} />
         <Route path="/dashboard/participants" element={<ParticipantsPage />} />
         <Route path="/dashboard/staff" element={<StaffPage />} />
       </Routes>
