@@ -9,6 +9,7 @@ const supabase = require("./config/supabase");
 const eventRoutes = require("./routes/event.routes.js");
 const authRoutes = require("./routes/auth.routes");
 const profileRoutes = require("./routes/profile.routes");
+const participantRoutes = require("./routes/participants.routes.js");
 
 // Error handlers
 const {
@@ -83,6 +84,9 @@ app.use("/api/auth", authRoutes);
 
 // Profile module
 app.use("/api/profile", profileRoutes);
+
+// Participants & Ticket management (Gói 7 - Phase 1)
+app.use("/api", participantRoutes);
 
 // ==============================
 // Error Handling

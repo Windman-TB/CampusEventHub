@@ -4,7 +4,21 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node --watch src/server.js"
+    "dev": "node --watch src/server.js",
+    "test": "jest --runInBand",
+    "test:unit": "jest tests/unit --runInBand",
+    "test:api": "jest tests/api --runInBand",
+    "test:watch": "jest --watch"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": ["**/tests/**/*.test.js"],
+    "moduleFileExtensions": ["js", "json"],
+    "roots": ["<rootDir>/tests"],
+    "moduleNameMapper": {
+      "^../config/supabase.js$": "<rootDir>/src/config/supabase.js",
+      "^../src/utils/jwt.js$": "<rootDir>/src/utils/jwt.js"
+    }
   },
   "keywords": [],
   "author": "",
@@ -21,5 +35,9 @@
   },
   "engines": {
     "node": ">=22 <25"
+  },
+  "devDependencies": {
+    "jest": "^30.5.2",
+    "supertest": "^7.3.0"
   }
 }
