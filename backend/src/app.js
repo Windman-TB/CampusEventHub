@@ -1,27 +1,50 @@
-require("dotenv").config(); 
+require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+
 const supabase = require("./config/supabase");
-const eventRoutes = require('./routes/event.routes.js');
+
+// Routes
+const eventRoutes = require("./routes/event.routes.js");
+const authRoutes = require("./routes/auth.routes");
+const profileRoutes = require("./routes/profile.routes");
+
+// Error handlers
+const {
+  notFoundHandler,
+  errorHandler,
+} = require("./middlewares/error.middleware");
 
 const app = express();
 
-const PORT = process.env.PORT || 5000;
-
+// ==============================
 // Middleware
-app.use(cors());
+// ==============================
+
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 
-app.use('/api', eventRoutes);
+// ==============================
+// Health Check
+// ==============================
 
-// Health check
 app.get("/api/health", (req, res) => {
-    res.json({
-        status: "ok",
-        message: "Campus Event Hub API is running",
-    });
+  res.json({
+    status: "ok",
+    message: "Campus Event Hub API is running",
+  });
 });
+
+// ==============================
+// Database Health Check
+// ==============================
 
 app.get("/api/health/db", async (req, res) => {
   try {
@@ -48,7 +71,25 @@ app.get("/api/health/db", async (req, res) => {
   }
 });
 
-// Start server
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+// ==============================
+// Routes
+// ==============================
+
+// Event module từ main
+app.use("/api", eventRoutes);
+
+// Auth module
+app.use("/api/auth", authRoutes);
+
+// Profile module
+app.use("/api/profile", profileRoutes);
+
+// ==============================
+// Error Handling
+// PHẢI LUÔN ĐẶT CUỐI CÙNG
+// ==============================
+
+app.use(notFoundHandler);
+app.use(errorHandler);
+
+module.exports = app;
