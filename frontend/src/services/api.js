@@ -1,4 +1,4 @@
-const API_URL =
+export const API_URL =
   import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export async function apiFetch(endpoint, options = {}) {
@@ -17,6 +17,7 @@ export async function apiFetch(endpoint, options = {}) {
     const message = errorData.message || `Lỗi yêu cầu máy chủ: ${response.status}`;
     const error = new Error(message);
     error.status = response.status;
+    error.code = errorData.error;
     error.details = errorData.details;
     throw error;
   }
@@ -25,8 +26,8 @@ export async function apiFetch(endpoint, options = {}) {
 }
 
 // Hàm tiện ích lấy Authorization header theo quy chuẩn dự án
-const getAuthHeaders = () => {
-  const token = sessionStorage.getItem("token");
+export const getAuthHeaders = () => {
+  const token = sessionStorage.getItem("token") || localStorage.getItem("token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
