@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { setStoredRole } from "../layouts/MainLayout";
+import { apiFetch } from "../services/api";
 
 const DEMO_ACCOUNTS = [
   {
@@ -37,33 +38,67 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     if (!email || !password) return alert("Vui lòng nhập email và mật khẩu");
 
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      if (email.includes("org")) {
-        setStoredRole('organizer');
-        navigate("/dashboard");
-      } else if (email.includes("checkin")) {
-        setStoredRole('staff');
-        navigate("/check-in");
-      } else {
-        setStoredRole('student');
-        navigate("/home");
+    try {
+      const res = await apiFetch("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ identifier: email, mat_khau: password }),
+      });
+
+      if (res.data?.accessToken) {
+        sessionStorage.setItem("token", res.data.accessToken);
+        localStorage.setItem("token", res.data.accessToken);
+        if (res.data.user) {
+          localStorage.setItem("user", JSON.stringify(res.data.user));
+        }
+
+        const role = res.data.user?.loai_tai_khoan;
+        if (role === "ToChuc") {
+          setStoredRole("organizer");
+          navigate("/dashboard");
+        } else if (role === "NhanVienCheckIn") {
+          setStoredRole("staff");
+          navigate("/check-in");
+        } else {
+          setStoredRole("student");
+          navigate("/home");
+        }
       }
-    }, 800);
+    } catch (err) {
+      alert(err.message || "Đăng nhập thất bại");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function handleDemoLogin(acc) {
+  async function handleDemoLogin(acc) {
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setStoredRole(acc.role);   // ghi role vào localStorage
+    try {
+      const res = await apiFetch("/api/auth/demo-login", {
+        method: "POST",
+        body: JSON.stringify({ role: acc.role }),
+      });
+
+      if (res.data?.accessToken) {
+        sessionStorage.setItem("token", res.data.accessToken);
+        localStorage.setItem("token", res.data.accessToken);
+        if (res.data.user) {
+          localStorage.setItem("user", JSON.stringify(res.data.user));
+        }
+      }
+      setStoredRole(acc.role);
       navigate(acc.path);
-    }, 600);
+    } catch (err) {
+      console.error("Demo login error:", err);
+      setStoredRole(acc.role);
+      navigate(acc.path);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
