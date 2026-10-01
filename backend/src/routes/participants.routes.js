@@ -23,4 +23,13 @@ router.patch(
   participantsCtrl.patchTicketStatus
 );
 
+// GET /api/organizer/events/:id/export
+// Xuất danh sách người tham gia (CSV hoặc XLSX)
+router.get(
+  '/organizer/events/:id/export',
+  authenticate,
+  authorizeRoles('ToChuc'),
+  participantsCtrl.exportParticipants
+);
+
 module.exports = router;

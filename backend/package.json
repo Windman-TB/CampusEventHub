@@ -12,9 +12,16 @@
   },
   "jest": {
     "testEnvironment": "node",
-    "testMatch": ["**/tests/**/*.test.js"],
-    "moduleFileExtensions": ["js", "json"],
-    "roots": ["<rootDir>/tests"],
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "moduleFileExtensions": [
+      "js",
+      "json"
+    ],
+    "roots": [
+      "<rootDir>/tests"
+    ],
     "moduleNameMapper": {
       "^../config/supabase.js$": "<rootDir>/src/config/supabase.js",
       "^../src/utils/jwt.js$": "<rootDir>/src/utils/jwt.js"
@@ -29,6 +36,7 @@
     "argon2": "^0.45.1",
     "cors": "^2.8.6",
     "dotenv": "^18.0.1",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "zod": "^4.6.5"
