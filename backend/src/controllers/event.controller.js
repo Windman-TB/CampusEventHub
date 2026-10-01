@@ -16,7 +16,7 @@ const getCategories = async (req, res, next) => {
 
 const getOrganizerEvents = async (req, res, next) => {
   try {
-    const maTaiKhoan = req.user?.ma_tai_khoan || 2;
+    const maTaiKhoan = req.user.id;
     const events = await eventService.getOrganizerEventsService(maTaiKhoan);
     return res.status(200).json({
       success: true,
@@ -74,7 +74,7 @@ const createEvent = async (req, res, next) => {
     };
 
     const validatedData = createEventSchema.parse(rawData);
-    const maTaiKhoan = req.user?.ma_tai_khoan || 2;
+    const maTaiKhoan = req.user.id;
     const newEvent = await eventService.createEventService(validatedData, maTaiKhoan);
 
     return res.status(201).json({
@@ -121,7 +121,7 @@ const updateEvent = async (req, res, next) => {
     };
 
     const validatedData = updateEventSchema.parse(rawData);
-    const maTaiKhoan = req.user?.ma_tai_khoan || 2;
+    const maTaiKhoan = req.user.id;
     const updated = await eventService.updateEventService(id, validatedData, maTaiKhoan);
 
     return res.status(200).json({
@@ -164,7 +164,7 @@ const updateEvent = async (req, res, next) => {
 const deleteEvent = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const maTaiKhoan = req.user?.ma_tai_khoan || 2;
+    const maTaiKhoan = req.user.id;
     await eventService.deleteEventService(id, maTaiKhoan);
 
     return res.status(200).json({
