@@ -1,5 +1,13 @@
-import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { useState } from "react";
+
+import {
+  NavLink,
+  useNavigate,
+} from "react-router-dom";
+
+import {
+  clearAuthSession,
+} from "../utils/authStorage";
 
 const NAV_ITEMS = [
   {
@@ -40,7 +48,7 @@ const NAV_ITEMS = [
   },
 ];
 
-function SidebarContent({ onNavigate }) {
+function SidebarContent({ onNavigate, onLogout, }) {
   return (
     <>
       <div className="px-5 py-5 border-b" style={{ borderColor: '#f1f5f9' }}>
@@ -92,8 +100,9 @@ function SidebarContent({ onNavigate }) {
             <div className="text-xs truncate" style={{ color: '#94a3b8' }}>btc@campus.edu.vn</div>
           </div>
         </div>
-        <button
-          onClick={() => window.location.href = '/login'}
+          <button
+            type="button"
+            onClick={onLogout}
           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all hover:bg-red-50"
           style={{ color: '#94a3b8' }}>
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -108,7 +117,18 @@ function SidebarContent({ onNavigate }) {
 }
 
 export default function DashboardLayout({ children }) {
+  
+  const navigate = useNavigate();
+
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  function handleLogout() {
+    clearAuthSession();
+
+    navigate("/login", {
+      replace: true,
+    });
+  }
 
   return (
     <div className="flex min-h-screen" style={{ background: '#f4f5f9' }}>

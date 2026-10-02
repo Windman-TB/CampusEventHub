@@ -1,9 +1,53 @@
-const API_URL =
+import {
+  clearAuthSession,
+} from "../utils/authStorage";
+
+// ==========================================
+// API CONFIG
+// ==========================================
+
+export const API_URL =
   import.meta.env.VITE_API_URL || "http://localhost:5000";
 
+
+// ==========================================
+// TOKEN HELPERS
+// ==========================================
+
+export function getAccessToken() {
+  return (
+    localStorage.getItem("accessToken") ||
+    sessionStorage.getItem("accessToken")
+  );
+}
+
+export function getAuthHeaders() {
+  const token = getAccessToken();
+
+  return token
+    ? {
+        Authorization: `Bearer ${token}`,
+      }
+    : {};
+}
+
+
+// ==========================================
+// COMMON API FETCH
+// ==========================================
+
 export async function apiFetch(endpoint, options = {}) {
+  const token = getAccessToken();
+
   const headers = {
     "Content-Type": "application/json",
+
+    ...(token
+      ? {
+          Authorization: `Bearer ${token}`,
+        }
+      : {}),
+
     ...options.headers,
   };
 
@@ -12,62 +56,94 @@ export async function apiFetch(endpoint, options = {}) {
     headers,
   });
 
+  let data = null;
+
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    const message = errorData.message || `Lỗi yêu cầu máy chủ: ${response.status}`;
-    const error = new Error(message);
+    // Token hết hạn / không hợp lệ
+    if (response.status === 401) {
+      clearAuthSession();
+    }
+
+    const error = new Error(
+      data?.message ||
+        `Lỗi yêu cầu máy chủ: ${response.status}`
+    );
+
     error.status = response.status;
-    error.details = errorData.details;
+    error.code =
+      data?.error?.code ||
+      data?.error ||
+      null;
+
+    error.details =
+      data?.details ||
+      data?.errors ||
+      null;
+
     throw error;
   }
 
-  return response.json();
+  return data;
 }
 
-// Hàm tiện ích lấy Authorization header theo quy chuẩn dự án
-const getAuthHeaders = () => {
-  const token = sessionStorage.getItem("token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
 
-// 1. API lấy danh mục chuyên đề (GET /api/categories)
+// ==========================================
+// CATEGORY APIs
+// ==========================================
+
+// GET /api/categories
 export async function fetchCategories() {
   return apiFetch("/api/categories");
 }
 
-// 2. API lấy danh sách sự kiện của Ban tổ chức (GET /api/organizer/events)
+
+// ==========================================
+// ORGANIZER EVENT APIs
+// ==========================================
+
+// GET /api/organizer/events
 export async function fetchOrganizerEvents() {
-  return apiFetch("/api/organizer/events", {
-    headers: getAuthHeaders(),
-  });
+  return apiFetch("/api/organizer/events");
 }
 
-// 3. API tạo sự kiện mới (POST /api/events)
+
+// ==========================================
+// EVENT APIs
+// ==========================================
+
+// GET /api/events/:id
+export async function fetchEventById(id) {
+  return apiFetch(`/api/events/${id}`);
+}
+
+
+// POST /api/events
 export async function createEvent(eventData) {
   return apiFetch("/api/events", {
     method: "POST",
-    headers: getAuthHeaders(),
     body: JSON.stringify(eventData),
   });
 }
 
-// 4. API cập nhật sự kiện (PUT /api/events/:id)
+
+// PUT /api/events/:id
 export async function updateEvent(id, eventData) {
   return apiFetch(`/api/events/${id}`, {
     method: "PUT",
-    headers: getAuthHeaders(),
     body: JSON.stringify(eventData),
   });
 }
 
-// 5. API xóa/hủy sự kiện (DELETE /api/events/:id)
+
+// DELETE /api/events/:id
 export async function deleteEvent(id) {
   return apiFetch(`/api/events/${id}`, {
     method: "DELETE",
-    headers: getAuthHeaders(),
   });
-}
-
-export async function fetchEventById(id) {
-  return apiFetch(`/api/events/${id}`);
 }

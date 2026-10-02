@@ -53,7 +53,63 @@ const loginSchema = z
   })
   .strict();
 
+const requestOtpSchema = z
+  .object({
+    email: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email("Email không hợp lệ")
+      .max(
+        100,
+        "Email không được vượt quá 100 ký tự"
+      ),
+  })
+  .strict();
+
+const verifyOtpSchema = z
+  .object({
+    email: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email("Email không hợp lệ"),
+
+    otp: z
+      .string()
+      .regex(
+        /^\d{6}$/,
+        "OTP phải gồm đúng 6 chữ số"
+      ),
+  })
+  .strict();
+
+const resetPasswordSchema = z
+  .object({
+    resetToken: z
+      .string()
+      .min(
+        1,
+        "Reset token không được để trống"
+      ),
+
+    newPassword: z
+      .string()
+      .min(
+        8,
+        "Mật khẩu phải có ít nhất 8 ký tự"
+      )
+      .max(
+        100,
+        "Mật khẩu không được vượt quá 100 ký tự"
+      ),
+  })
+  .strict();
+
 module.exports = {
   registerSchema,
   loginSchema,
+  requestOtpSchema,
+  verifyOtpSchema,
+  resetPasswordSchema,
 };

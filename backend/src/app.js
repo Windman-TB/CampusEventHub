@@ -2,15 +2,20 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 
 const supabase = require("./config/supabase");
 
+// ==============================
 // Routes
+// ==============================
 const eventRoutes = require("./routes/event.routes.js");
 const authRoutes = require("./routes/auth.routes");
 const profileRoutes = require("./routes/profile.routes");
 
+// ==============================
 // Error handlers
+// ==============================
 const {
   notFoundHandler,
   errorHandler,
@@ -19,9 +24,13 @@ const {
 const app = express();
 
 // ==============================
-// Middleware
+// Global Middleware
 // ==============================
 
+// Security HTTP headers
+app.use(helmet());
+
+// CORS
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:5173",
@@ -29,12 +38,13 @@ app.use(
   })
 );
 
-app.use(express.json());
+// Parse JSON body
+// Giới hạn JSON tối đa 1 MB
+app.use(express.json({ limit: "1mb" }));
 
 // ==============================
 // Health Check
 // ==============================
-
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
@@ -45,7 +55,6 @@ app.get("/api/health", (req, res) => {
 // ==============================
 // Database Health Check
 // ==============================
-
 app.get("/api/health/db", async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -88,7 +97,6 @@ app.use("/api/profile", profileRoutes);
 // Error Handling
 // PHẢI LUÔN ĐẶT CUỐI CÙNG
 // ==============================
-
 app.use(notFoundHandler);
 app.use(errorHandler);
 

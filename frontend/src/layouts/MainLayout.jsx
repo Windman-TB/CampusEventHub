@@ -1,9 +1,5 @@
-import { NavLink } from 'react-router-dom';
-
-// Helpers để đọc/ghi role vào localStorage
-export const getStoredRole = () => localStorage.getItem('app_role') || 'student';
-export const setStoredRole = (role) => localStorage.setItem('app_role', role);
-export const clearStoredRole = () => localStorage.removeItem('app_role');
+import { NavLink } from "react-router-dom";
+import { getStoredRole } from "../utils/authStorage";
 
 /**
  * BottomNav — Bottom navigation bar shared across all student/staff pages.
@@ -11,7 +7,10 @@ export const clearStoredRole = () => localStorage.removeItem('app_role');
  * - dark: true khi dùng trên nền tối (CheckInPage)
  */
 export function BottomNav({ showCheckin, dark = false }) {
-  const isStaff = showCheckin !== undefined ? Boolean(showCheckin) : (getStoredRole() === 'staff');
+  const isStaff =
+  showCheckin !== undefined
+    ? Boolean(showCheckin)
+    : getStoredRole() === "NhanVienCheckIn";
 
   const activeCls = dark ? 'text-indigo-400' : 'text-indigo-600';
   const inactiveCls = dark ? 'text-slate-500' : 'text-slate-400';
