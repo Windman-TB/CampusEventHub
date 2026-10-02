@@ -1,18 +1,69 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import MainLayout from '../layouts/MainLayout';
-import { MOCK_EVENTS } from '../mocks/mockData'; // Sử dụng mock data dùng chung
+import { QRCodeSVG } from 'qrcode.react';
 
 export default function TicketPage() {
   const [tab, setTab] = useState('upcoming');
   const [showQR, setShowQR] = useState(null);
+  const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [cancelingId, setCancelingId] = useState(null);
 
-  // Giả lập vé (Lấy sự kiện đầu tiên làm vé đã đăng ký)
-  const myTickets = [
-    { id: 'TKT-2026-123', event: MOCK_EVENTS[0], status: 'pending' },
-    { id: 'TKT-2026-045', event: MOCK_EVENTS[1], status: 'attended' }
-  ];
-  
-  const list = tab === 'upcoming' ? myTickets.filter(t => t.status === 'pending') : myTickets.filter(t => t.status !== 'pending');
+  useEffect(() => {
+    fetchTickets();
+  }, []);
+
+  const fetchTickets = async () => {
+    try {
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const res = await fetch(`${apiUrl}/api/tickets/my-tickets`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTickets(data.data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelTicket = async (ticketId) => {
+    // Tạm tắt window.confirm để debug lỗi bấm Hủy vé không có phản hồi
+    // if (!window.confirm('Bạn có chắc chắn muốn hủy vé này không? Hành động này không thể hoàn tác.')) return;
+    
+    setCancelingId(ticketId);
+    try {
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const res = await fetch(`${apiUrl}/api/tickets/${ticketId}/cancel`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Hủy vé thành công!');
+        fetchTickets(); // Load lại danh sách vé
+      } else {
+        alert('Lỗi từ Server: ' + (data.message || 'Hủy vé thất bại'));
+      }
+    } catch (err) {
+      alert('Không thể kết nối đến server để hủy vé: ' + err.message);
+    } finally {
+      setCancelingId(null);
+    }
+  };
+
+  // Phân loại vé: 'upcoming' = Đã đăng ký (DaDangKy), 'history' = Đã tham dự (DaCheckIn) hoặc Đã hủy (DaHuy)
+  const list = tab === 'upcoming' 
+    ? tickets.filter(t => t.trang_thai_ve === 'DaDangKy') 
+    : tickets.filter(t => t.trang_thai_ve !== 'DaDangKy');
 
   return (
     <MainLayout>
@@ -25,35 +76,55 @@ export default function TicketPage() {
       </div>
 
       <div className="p-4 space-y-4">
-        {list.map(ticket => (
-          <div key={ticket.id} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-            <div className="flex justify-between items-start mb-2">
-              <h3 className="font-bold text-slate-900">{ticket.event.title}</h3>
-              <span className={`px-2 py-1 rounded text-xs font-semibold ${ticket.status === 'pending' ? 'bg-indigo-50 text-indigo-600' : 'bg-green-50 text-green-600'}`}>
-                {ticket.status === 'pending' ? 'Chưa check-in' : 'Đã tham dự'}
-              </span>
+        {loading ? (
+          <p className="text-center text-sm text-gray-500 mt-4">Đang tải danh sách vé...</p>
+        ) : list.length === 0 ? (
+          <p className="text-center text-sm text-gray-500 mt-4">Không có vé nào trong mục này.</p>
+        ) : (
+          list.map(ticket => (
+            <div key={ticket.ma_dang_ky} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="font-bold text-slate-900">{ticket.su_kien?.ten_su_kien}</h3>
+                <span className={`px-2 py-1 rounded text-xs font-semibold 
+                  ${ticket.trang_thai_ve === 'DaDangKy' ? 'bg-indigo-50 text-indigo-600' 
+                    : ticket.trang_thai_ve === 'DaCheckIn' ? 'bg-green-50 text-green-600' 
+                    : 'bg-red-50 text-red-600'}`}>
+                  {ticket.trang_thai_ve === 'DaDangKy' ? 'Chưa check-in' 
+                    : ticket.trang_thai_ve === 'DaCheckIn' ? 'Đã tham dự' 
+                    : 'Đã hủy'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mb-3">📅 {new Date(ticket.su_kien?.ngay_dien_ra).toLocaleDateString('vi-VN')} · 📍 {ticket.su_kien?.phong} - {ticket.su_kien?.dia_diem}</p>
+              
+              {ticket.trang_thai_ve === 'DaDangKy' && (
+                <div className="flex gap-2">
+                  <button onClick={() => setShowQR(ticket)} className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700">
+                    Hiện mã QR
+                  </button>
+                  <button 
+                    onClick={() => handleCancelTicket(ticket.ma_dang_ky)} 
+                    disabled={cancelingId === ticket.ma_dang_ky}
+                    className="px-4 py-2.5 bg-red-50 text-red-600 rounded-xl text-sm font-semibold hover:bg-red-100 disabled:opacity-50"
+                  >
+                    {cancelingId === ticket.ma_dang_ky ? 'Đang hủy...' : 'Hủy vé'}
+                  </button>
+                </div>
+              )}
             </div>
-            <p className="text-xs text-slate-500 mb-3">📅 {new Date(ticket.event.date).toLocaleDateString('vi-VN')} · 📍 {ticket.event.room}</p>
-            
-            {ticket.status === 'pending' && (
-              <button onClick={() => setShowQR(ticket)} className="w-full py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold">
-                Hiện mã QR
-              </button>
-            )}
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       {showQR && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowQR(null)}>
           <div className="bg-white rounded-3xl w-full max-w-sm p-6 text-center" onClick={e => e.stopPropagation()}>
             <h2 className="font-bold text-lg mb-1 text-slate-900">Mã QR của bạn</h2>
-            <p className="text-xs text-slate-500 mb-6">{showQR.event.title}</p>
-            <div className="w-48 h-48 mx-auto bg-slate-100 rounded-2xl border-2 border-slate-200 flex items-center justify-center text-6xl">
-              🔳
+            <p className="text-xs text-slate-500 mb-6">{showQR.su_kien?.ten_su_kien}</p>
+            <div className="p-4 mx-auto bg-white rounded-2xl border-2 border-slate-200 inline-block mb-4">
+              <QRCodeSVG value={showQR.ma_qr_code} size={200} />
             </div>
-            <p className="font-mono font-bold mt-4 mb-6">{showQR.id}</p>
-            <button onClick={() => setShowQR(null)} className="w-full py-3 bg-slate-100 text-slate-600 rounded-2xl font-semibold">Đóng</button>
+            <p className="font-mono text-xs text-gray-400 mt-2 mb-6 break-all px-4">{showQR.ma_qr_code}</p>
+            <button onClick={() => setShowQR(null)} className="w-full py-3 bg-slate-100 text-slate-600 rounded-2xl font-semibold hover:bg-slate-200">Đóng</button>
           </div>
         </div>
       )}

@@ -88,20 +88,9 @@ export default function EventDetailPage() {
               return;
             }
             if (event.status === 'full') return;
-            setRegistering(true);
-            setTimeout(() => {
-              setRegistering(false);
-              setRegistered(true);
-              navigate('/ticket-confirm', {
-                state: {
-                  ticketId: generateTicketId(),
-                  eventId: event.id,
-                  studentName: 'Nguyễn Văn A',
-                  studentId: '22521001',
-                  faculty: 'Công nghệ Thông tin',
-                },
-              });
-            }, 1000);
+            navigate('/ticket-confirm', {
+                state: { event }
+            });
           }}
           className="w-full py-3.5 rounded-xl font-bold"
           style={{ background: ctaBg, color: ctaColor }}
