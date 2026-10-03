@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { setStoredRole } from "../utils/authStorage";
+import {
+  setStoredRole,
+  clearAuthSession,
+} from "../utils/authStorage";
+
 import { apiFetch } from "../services/api";
 
 export default function LoginPage() {
@@ -72,81 +76,63 @@ export default function LoginPage() {
       const user = result?.data?.user;
 
       if (!accessToken || !user) {
-        throw new Error("Phản hồi đăng nhập từ server không hợp lệ.");
+        throw new Error(
+          "Phản hồi đăng nhập từ server không hợp lệ."
+        );
       }
 
-      // ==============================
-      // Lưu thông tin xác thực
-      // ==============================
-      localStorage.setItem("accessToken", accessToken);
-      localStorage.setItem("user", JSON.stringify(user));
-
-      // Backend:
-      // SinhVien / ToChuc / NhanVienCheckIn
-      //
-      // Frontend hiện tại:
-      // student / organizer / staff
       const validRoles = [
         "SinhVien",
         "ToChuc",
         "NhanVienCheckIn",
       ];
 
-      if (
-        !validRoles.includes(
-          user.loai_tai_khoan
-        )
-      ) {
-        localStorage.removeItem(
-          "accessToken"
-        );
-
-        localStorage.removeItem(
-          "user"
-        );
-
-        clearStoredRole?.();
+      if (!validRoles.includes(user.loai_tai_khoan)) {
+        clearAuthSession();
 
         throw new Error(
           "Loại tài khoản không hợp lệ."
         );
       }
 
+      // Lưu phiên đăng nhập
+      localStorage.setItem(
+        "accessToken",
+        accessToken
+      );
+
+      localStorage.setItem(
+        "user",
+        JSON.stringify(user)
+      );
+
       setStoredRole(
         user.loai_tai_khoan
       );
 
-      const frontendRole = roleMap[user.loai_tai_khoan];
-
-      if (!frontendRole) {
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("user");
-
-        throw new Error("Loại tài khoản không hợp lệ.");
-      }
-
-      setStoredRole(frontendRole);
-
-      // ==============================
-      // Điều hướng theo role thật
-      // ==============================
+      // Điều hướng theo role backend
       switch (user.loai_tai_khoan) {
         case "ToChuc":
-          navigate("/dashboard");
+          navigate("/dashboard", {
+            replace: true,
+          });
           break;
 
         case "NhanVienCheckIn":
-          navigate("/check-in");
+          navigate("/check-in", {
+            replace: true,
+          });
           break;
 
         case "SinhVien":
         default:
-          navigate("/home");
+          navigate("/home", {
+            replace: true,
+          });
           break;
       }
     } catch (err) {
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("user");
+      clearAuthSession();
 
       setError(
         err?.message ||
@@ -183,17 +169,23 @@ export default function LoginPage() {
       !mat_khau ||
       !xac_nhan_mat_khau
     ) {
-      setError("Vui lòng nhập đầy đủ các thông tin bắt buộc.");
+      setError(
+        "Vui lòng nhập đầy đủ các thông tin bắt buộc."
+      );
       return;
     }
 
     if (mat_khau.length < 8) {
-      setError("Mật khẩu phải có ít nhất 8 ký tự.");
+      setError(
+        "Mật khẩu phải có ít nhất 8 ký tự."
+      );
       return;
     }
 
     if (mat_khau !== xac_nhan_mat_khau) {
-      setError("Mật khẩu xác nhận không khớp.");
+      setError(
+        "Mật khẩu xác nhận không khớp."
+      );
       return;
     }
 
@@ -205,7 +197,9 @@ export default function LoginPage() {
         body: JSON.stringify({
           ho_ten: ho_ten.trim(),
           mssv: mssv.trim(),
-          email: email.trim().toLowerCase(),
+          email: email
+            .trim()
+            .toLowerCase(),
           sdt: sdt.trim() || undefined,
           khoa,
           mat_khau,
@@ -220,10 +214,13 @@ export default function LoginPage() {
       setTab("login");
 
       // Điền sẵn email vừa đăng ký
-      setIdentifier(email.trim().toLowerCase());
+      setIdentifier(
+        email.trim().toLowerCase()
+      );
+
       setPassword("");
 
-      // Reset form register
+      // Reset form đăng ký
       setRegisterForm({
         ho_ten: "",
         mssv: "",
@@ -246,7 +243,10 @@ export default function LoginPage() {
   // ==============================
   // Update register form
   // ==============================
-  function updateRegisterField(field, value) {
+  function updateRegisterField(
+    field,
+    value
+  ) {
     setRegisterForm((prev) => ({
       ...prev,
       [field]: value,
@@ -256,7 +256,9 @@ export default function LoginPage() {
   return (
     <div
       className="min-h-screen flex"
-      style={{ background: "#f8fafc" }}
+      style={{
+        background: "#f8fafc",
+      }}
     >
       {/* ==================================================
           LEFT BRANDING PANEL
@@ -291,7 +293,9 @@ export default function LoginPage() {
         <div className="relative flex items-center gap-3">
           <div
             className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm tracking-tight"
-            style={{ background: "#4f46e5" }}
+            style={{
+              background: "#4f46e5",
+            }}
           >
             CEH
           </div>
@@ -312,8 +316,10 @@ export default function LoginPage() {
           <div
             className="rounded-2xl overflow-hidden mb-8"
             style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              background:
+                "rgba(255,255,255,0.05)",
+              border:
+                "1px solid rgba(255,255,255,0.08)",
             }}
           >
             <img
@@ -324,7 +330,9 @@ export default function LoginPage() {
 
             <div
               className="px-4 py-3 text-xs"
-              style={{ color: "#94a3b8" }}
+              style={{
+                color: "#94a3b8",
+              }}
             >
               Sinh viên Đại học Công nghệ Thông tin
             </div>
@@ -334,13 +342,18 @@ export default function LoginPage() {
             <h1
               className="text-white font-bold leading-tight mb-4"
               style={{
-                fontSize: "clamp(1.8rem, 3vw, 2.5rem)",
+                fontSize:
+                  "clamp(1.8rem, 3vw, 2.5rem)",
               }}
             >
               Kết nối sinh viên
               <br />
 
-              <span style={{ color: "#818cf8" }}>
+              <span
+                style={{
+                  color: "#818cf8",
+                }}
+              >
                 Khám phá sự kiện
               </span>
 
@@ -350,10 +363,13 @@ export default function LoginPage() {
 
             <p
               className="text-slate-400 leading-relaxed"
-              style={{ fontSize: "0.9rem" }}
+              style={{
+                fontSize: "0.9rem",
+              }}
             >
-              Đăng ký sự kiện, nhận vé QR và điểm danh — tất cả
-              trên một nền tảng duy nhất dành cho sinh viên.
+              Đăng ký sự kiện, nhận vé QR và
+              điểm danh — tất cả trên một nền
+              tảng duy nhất dành cho sinh viên.
             </p>
           </div>
 
@@ -368,7 +384,8 @@ export default function LoginPage() {
                 key={label}
                 className="rounded-xl p-3"
                 style={{
-                  background: "rgba(255,255,255,0.06)",
+                  background:
+                    "rgba(255,255,255,0.06)",
                   border:
                     "1px solid rgba(255,255,255,0.08)",
                 }}
@@ -379,7 +396,9 @@ export default function LoginPage() {
 
                 <div
                   className="text-xs mt-0.5"
-                  style={{ color: "#64748b" }}
+                  style={{
+                    color: "#64748b",
+                  }}
                 >
                   {label}
                 </div>
@@ -390,9 +409,12 @@ export default function LoginPage() {
 
         <p
           className="relative text-xs"
-          style={{ color: "#334155" }}
+          style={{
+            color: "#334155",
+          }}
         >
-          © 2026 Campus Event Hub · Đại học Công nghệ Thông tin
+          © 2026 Campus Event Hub · Đại học
+          Công nghệ Thông tin
         </p>
       </div>
 
@@ -402,13 +424,17 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-6 lg:p-12 overflow-y-auto">
         <div
           className="w-full"
-          style={{ maxWidth: 440 }}
+          style={{
+            maxWidth: 440,
+          }}
         >
           {/* Mobile logo */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-xs"
-              style={{ background: "#4f46e5" }}
+              style={{
+                background: "#4f46e5",
+              }}
             >
               CEH
             </div>
@@ -416,14 +442,18 @@ export default function LoginPage() {
             <div>
               <div
                 className="font-bold"
-                style={{ color: "#1a1a2e" }}
+                style={{
+                  color: "#1a1a2e",
+                }}
               >
                 Campus Event Hub
               </div>
 
               <div
                 className="text-xs"
-                style={{ color: "#94a3b8" }}
+                style={{
+                  color: "#94a3b8",
+                }}
               >
                 Nền tảng sự kiện sinh viên
               </div>
@@ -435,19 +465,28 @@ export default function LoginPage() {
           ================================================== */}
           <div
             className="bg-white rounded-2xl shadow-sm border p-8"
-            style={{ borderColor: "#e2e8f0" }}
+            style={{
+              borderColor: "#e2e8f0",
+            }}
           >
             {/* Tabs */}
             <div
               className="flex gap-1 p-1 rounded-xl mb-6"
-              style={{ background: "#f8fafc" }}
+              style={{
+                background: "#f8fafc",
+              }}
             >
-              {["login", "register"].map((currentTab) => (
+              {[
+                "login",
+                "register",
+              ].map((currentTab) => (
                 <button
                   key={currentTab}
                   type="button"
                   onClick={() =>
-                    handleChangeTab(currentTab)
+                    handleChangeTab(
+                      currentTab
+                    )
                   }
                   className="flex-1 py-2 rounded-lg text-sm font-semibold transition-all"
                   style={{
@@ -524,7 +563,9 @@ export default function LoginPage() {
                     type="text"
                     placeholder="email@uit.edu.vn hoặc 2252xxxx"
                     value={identifier}
-                    onChange={setIdentifier}
+                    onChange={
+                      setIdentifier
+                    }
                     disabled={loading}
                     required
                   />
@@ -554,11 +595,13 @@ export default function LoginPage() {
                     <button
                       type="button"
                       onClick={() =>
-                        navigate("/forgot-password")
+                        navigate(
+                          "/forgot-password"
+                        )
                       }
                       className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
                     >
-                    Quên mật khẩu?
+                      Quên mật khẩu?
                     </button>
                   </div>
 
@@ -574,16 +617,18 @@ export default function LoginPage() {
                 </form>
               </>
             ) : (
-              /* ==================================================
-                  REGISTER TAB
-              ================================================== */
               <>
+                {/* ==================================================
+                    REGISTER TAB
+                ================================================== */}
+
                 <h2 className="font-bold text-xl mb-1 text-slate-900">
                   Tạo tài khoản mới
                 </h2>
 
                 <p className="text-sm mb-5 text-slate-400">
-                  Điền thông tin sinh viên của bạn
+                  Điền thông tin sinh viên của
+                  bạn
                 </p>
 
                 <form
@@ -593,7 +638,9 @@ export default function LoginPage() {
                   <FormField
                     label="Họ và tên"
                     placeholder="Nguyễn Văn A"
-                    value={registerForm.ho_ten}
+                    value={
+                      registerForm.ho_ten
+                    }
                     onChange={(value) =>
                       updateRegisterField(
                         "ho_ten",
@@ -608,7 +655,9 @@ export default function LoginPage() {
                     <FormField
                       label="MSSV"
                       placeholder="2252xxxx"
-                      value={registerForm.mssv}
+                      value={
+                        registerForm.mssv
+                      }
                       onChange={(value) =>
                         updateRegisterField(
                           "mssv",
@@ -622,7 +671,9 @@ export default function LoginPage() {
                     <FormField
                       label="Số điện thoại"
                       placeholder="09xx xxx xxx"
-                      value={registerForm.sdt}
+                      value={
+                        registerForm.sdt
+                      }
                       onChange={(value) =>
                         updateRegisterField(
                           "sdt",
@@ -637,7 +688,9 @@ export default function LoginPage() {
                     label="Email sinh viên"
                     type="email"
                     placeholder="mssv@gm.uit.edu.vn"
-                    value={registerForm.email}
+                    value={
+                      registerForm.email
+                    }
                     onChange={(value) =>
                       updateRegisterField(
                         "email",
@@ -654,7 +707,9 @@ export default function LoginPage() {
                     </label>
 
                     <select
-                      value={registerForm.khoa}
+                      value={
+                        registerForm.khoa
+                      }
                       onChange={(e) =>
                         updateRegisterField(
                           "khoa",
@@ -690,7 +745,9 @@ export default function LoginPage() {
                     label="Mật khẩu"
                     type="password"
                     placeholder="Tối thiểu 8 ký tự"
-                    value={registerForm.mat_khau}
+                    value={
+                      registerForm.mat_khau
+                    }
                     onChange={(value) =>
                       updateRegisterField(
                         "mat_khau",
@@ -740,6 +797,7 @@ export default function LoginPage() {
 // ==================================================
 // Reusable Form Field
 // ==================================================
+
 function FormField({
   label,
   type = "text",

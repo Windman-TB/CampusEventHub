@@ -1,4 +1,4 @@
-require("dotenv").config();
+require("dotenv").config({ quiet: true });
 
 const express = require("express");
 const cors = require("cors");
@@ -12,6 +12,8 @@ const supabase = require("./config/supabase");
 const eventRoutes = require("./routes/event.routes.js");
 const authRoutes = require("./routes/auth.routes");
 const profileRoutes = require("./routes/profile.routes");
+const participantRoutes = require("./routes/participants.routes.js");
+const staffRoutes = require("./routes/staff.routes.js");
 
 // ==============================
 // Error handlers
@@ -92,6 +94,12 @@ app.use("/api/auth", authRoutes);
 
 // Profile module
 app.use("/api/profile", profileRoutes);
+
+// Participants & Ticket management (Gói 7 - Phase 1)
+app.use("/api", participantRoutes);
+
+// Staff management (Gói 7 - Phase 2)
+app.use("/api", staffRoutes);
 
 // ==============================
 // Error Handling

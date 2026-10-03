@@ -1,7 +1,5 @@
 const authService = require("../services/auth.service");
-
-const otpService =
-  require("../services/otp.service");
+const otpService = require("../services/otp.service");
 
 // ==============================
 // REGISTER
@@ -23,7 +21,9 @@ async function register(req, res) {
 
     return res.status(error.statusCode || 500).json({
       success: false,
-      message: error.message || "Đăng ký tài khoản thất bại",
+      message:
+        error.message ||
+        "Đăng ký tài khoản thất bại",
       error: error.code
         ? {
             code: error.code,
@@ -39,7 +39,8 @@ async function register(req, res) {
 
 async function login(req, res) {
   try {
-    const result = await authService.loginUser(req.body);
+    const result =
+      await authService.loginUser(req.body);
 
     return res.status(200).json({
       success: true,
@@ -51,13 +52,55 @@ async function login(req, res) {
 
     return res.status(error.statusCode || 500).json({
       success: false,
-      message: error.message || "Đăng nhập thất bại",
+      message:
+        error.message ||
+        "Đăng nhập thất bại",
       error: error.code
         ? {
             code: error.code,
           }
         : null,
     });
+  }
+}
+
+// ==============================
+// DEMO LOGIN
+// ==============================
+
+async function demoLogin(req, res) {
+  try {
+    const { role } = req.body || {};
+
+    const result =
+      await authService.demoLoginUser(
+        role || "organizer"
+      );
+
+    return res.status(200).json({
+      success: true,
+      message: "Đăng nhập Demo thành công",
+      data: result,
+    });
+  } catch (error) {
+    console.error(
+      "Demo login error:",
+      error
+    );
+
+    return res
+      .status(error.statusCode || 500)
+      .json({
+        success: false,
+        message:
+          error.message ||
+          "Đăng nhập Demo thất bại",
+        error: error.code
+          ? {
+              code: error.code,
+            }
+          : null,
+      });
   }
 }
 
@@ -70,13 +113,13 @@ async function requestPasswordResetOtp(
   res
 ) {
   try {
-    await otpService
-      .requestPasswordResetOtp(
-        req.body
-      );
+    await otpService.requestPasswordResetOtp(
+      req.body
+    );
 
     // Cố ý trả cùng response dù email
-    // có tồn tại hay không.
+    // có tồn tại hay không để tránh
+    // email enumeration.
     return res.status(200).json({
       success: true,
       message:
@@ -89,9 +132,7 @@ async function requestPasswordResetOtp(
     );
 
     return res
-      .status(
-        error.statusCode || 500
-      )
+      .status(error.statusCode || 500)
       .json({
         success: false,
         message:
@@ -116,10 +157,9 @@ async function verifyPasswordResetOtp(
 ) {
   try {
     const result =
-      await otpService
-        .verifyPasswordResetOtp(
-          req.body
-        );
+      await otpService.verifyPasswordResetOtp(
+        req.body
+      );
 
     return res.status(200).json({
       success: true,
@@ -134,9 +174,7 @@ async function verifyPasswordResetOtp(
     );
 
     return res
-      .status(
-        error.statusCode || 500
-      )
+      .status(error.statusCode || 500)
       .json({
         success: false,
         message:
@@ -176,9 +214,7 @@ async function resetPassword(
     );
 
     return res
-      .status(
-        error.statusCode || 500
-      )
+      .status(error.statusCode || 500)
       .json({
         success: false,
         message:
@@ -193,9 +229,14 @@ async function resetPassword(
   }
 }
 
+// ==============================
+// EXPORTS
+// ==============================
+
 module.exports = {
   register,
   login,
+  demoLogin,
   requestPasswordResetOtp,
   verifyPasswordResetOtp,
   resetPassword,

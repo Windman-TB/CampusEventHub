@@ -7,8 +7,8 @@ import {
 // ==========================================
 
 export const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000";
-
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
 
 // ==========================================
 // TOKEN HELPERS
@@ -31,12 +31,14 @@ export function getAuthHeaders() {
     : {};
 }
 
-
 // ==========================================
 // COMMON API FETCH
 // ==========================================
 
-export async function apiFetch(endpoint, options = {}) {
+export async function apiFetch(
+  endpoint,
+  options = {}
+) {
   const token = getAccessToken();
 
   const headers = {
@@ -51,10 +53,13 @@ export async function apiFetch(endpoint, options = {}) {
     ...options.headers,
   };
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  const response = await fetch(
+    `${API_URL}${endpoint}`,
+    {
+      ...options,
+      headers,
+    }
+  );
 
   let data = null;
 
@@ -65,7 +70,7 @@ export async function apiFetch(endpoint, options = {}) {
   }
 
   if (!response.ok) {
-    // Token hết hạn / không hợp lệ
+    // Token hết hạn hoặc token không hợp lệ.
     if (response.status === 401) {
       clearAuthSession();
     }
@@ -76,14 +81,17 @@ export async function apiFetch(endpoint, options = {}) {
     );
 
     error.status = response.status;
+
     error.code =
       data?.error?.code ||
-      data?.error ||
-      null;
+      (typeof data?.error === "string"
+        ? data.error
+        : null);
 
     error.details =
       data?.details ||
       data?.errors ||
+      data?.error?.details ||
       null;
 
     throw error;
@@ -91,7 +99,6 @@ export async function apiFetch(endpoint, options = {}) {
 
   return data;
 }
-
 
 // ==========================================
 // CATEGORY APIs
@@ -102,16 +109,16 @@ export async function fetchCategories() {
   return apiFetch("/api/categories");
 }
 
-
 // ==========================================
 // ORGANIZER EVENT APIs
 // ==========================================
 
 // GET /api/organizer/events
 export async function fetchOrganizerEvents() {
-  return apiFetch("/api/organizer/events");
+  return apiFetch(
+    "/api/organizer/events"
+  );
 }
-
 
 // ==========================================
 // EVENT APIs
@@ -119,31 +126,41 @@ export async function fetchOrganizerEvents() {
 
 // GET /api/events/:id
 export async function fetchEventById(id) {
-  return apiFetch(`/api/events/${id}`);
+  return apiFetch(
+    `/api/events/${id}`
+  );
 }
 
-
 // POST /api/events
-export async function createEvent(eventData) {
+export async function createEvent(
+  eventData
+) {
   return apiFetch("/api/events", {
     method: "POST",
     body: JSON.stringify(eventData),
   });
 }
 
-
 // PUT /api/events/:id
-export async function updateEvent(id, eventData) {
-  return apiFetch(`/api/events/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(eventData),
-  });
+export async function updateEvent(
+  id,
+  eventData
+) {
+  return apiFetch(
+    `/api/events/${id}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(eventData),
+    }
+  );
 }
-
 
 // DELETE /api/events/:id
 export async function deleteEvent(id) {
-  return apiFetch(`/api/events/${id}`, {
-    method: "DELETE",
-  });
+  return apiFetch(
+    `/api/events/${id}`,
+    {
+      method: "DELETE",
+    }
+  );
 }

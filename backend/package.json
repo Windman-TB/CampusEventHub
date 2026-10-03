@@ -6,7 +6,26 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "jest --runInBand",
+    "test:unit": "jest tests/unit --runInBand",
+    "test:api": "jest tests/api --runInBand",
     "test:watch": "jest --watch"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "moduleFileExtensions": [
+      "js",
+      "json"
+    ],
+    "roots": [
+      "<rootDir>/tests"
+    ],
+    "moduleNameMapper": {
+      "^../config/supabase.js$": "<rootDir>/src/config/supabase.js",
+      "^../src/utils/jwt.js$": "<rootDir>/src/utils/jwt.js"
+    }
   },
   "keywords": [],
   "author": "",
@@ -17,6 +36,7 @@
     "argon2": "^0.45.1",
     "cors": "^2.8.6",
     "dotenv": "^18.0.1",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
     "helmet": "^8.3.0",

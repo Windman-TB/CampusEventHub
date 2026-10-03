@@ -106,7 +106,7 @@ CREATE TABLE otp_quen_mat_khau (
     ma_otp SERIAL PRIMARY KEY,
     email VARCHAR(100) NOT NULL REFERENCES tai_khoan(email) ON DELETE CASCADE,
     ma_code VARCHAR(255) NOT NULL,                        -- Hash Argon2 của OTP 6 chữ số
-    thoi_gian_het_han TIMESTAMPTZ NOT NULL,                -- Hạn sử dụng (vd: +10 phút)
+    thoi_gian_het_han TIMESTAMPTZ NOT NULL,              -- Hạn sử dụng OTP
     da_su_dung BOOLEAN DEFAULT FALSE,
     thoi_gian_tao TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
@@ -139,7 +139,6 @@ CREATE INDEX idx_nhan_vien_tai_khoan ON nhan_vien_check_in(ma_tai_khoan);
 CREATE INDEX idx_nhan_vien_su_kien ON nhan_vien_check_in(ma_su_kien);
 
 CREATE INDEX idx_otp_email ON otp_quen_mat_khau(email);
-
 
 -- ==========================================
 -- 9. STORED PROCEDURE: ĐẶT VÉ & CHỐNG OVERBOOKING (PESSIMISTIC LOCK)
