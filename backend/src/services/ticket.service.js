@@ -1,13 +1,12 @@
 const crypto = require('crypto');
-const { v4: uuidv4 } = require('uuid');
 const supabase = require('../config/supabase');
-// const { sendTicketEmail } = require('./mail.service'); // Bật lên khi Gói 6 hoàn thành
+const { sendTicketEmail } = require('./mail.service'); // Đã bật cho Gói 4 & 6
 
 /**
  * Service sinh mã QR Code bảo mật bằng HMAC SHA-256
  */
 const generateSecureQRCode = (userId, eventId) => {
-    const rawData = `${userId}-${eventId}-${Date.now()}-${uuidv4()}`;
+    const rawData = `${userId}-${eventId}-${Date.now()}-${crypto.randomUUID()}`;
     const secretKey = process.env.JWT_SECRET || 'campus-event-hub-secret-key-default';
     
     // Hash thông tin vé để tạo chuỗi bảo mật chống làm giả
@@ -41,8 +40,8 @@ const bookTicket = async (userId, eventId) => {
         throw new Error(data.message || 'Đặt vé thất bại');
     }
 
-    // 4. (Optional) Gửi email bất đồng bộ - Gói 6
-    // sendTicketEmail(userId, eventId, qrCode).catch(err => console.error("Lỗi gửi email:", err));
+    // 4. Gửi email bất đồng bộ - Tích hợp cho Gói 4
+    sendTicketEmail(userId, eventId, qrCode).catch(err => console.error("Lỗi gửi email:", err));
 
     return {
         qrCode,
