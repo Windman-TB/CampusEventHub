@@ -7,6 +7,8 @@ const router = express.Router();
 
 // Public: Lấy chuyên đề & xem chi tiết sự kiện
 router.get('/categories', eventCtrl.getCategories);
+router.get('/events', eventCtrl.getPublicEvents);
+router.get('/notifications', eventCtrl.getNotifications);
 router.get('/events/:id', eventCtrl.getEventById);
 
 // Organizer: Quản lý sự kiện (Yêu cầu đăng nhập + vai trò ToChuc)

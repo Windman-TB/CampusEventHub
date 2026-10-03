@@ -44,10 +44,62 @@ const getOrganizerEvents = async (req, res, next) => {
   }
 };
 
+const getPublicEvents = async (req, res, next) => {
+  try {
+    const { keyword, ma_chuyen_de, trang_thai_su_kien, ticketStatus, ngay_dien_ra, dia_diem, page, limit } = req.query;
+    const result = await eventService.getPublicEventsService({
+      keyword,
+      ma_chuyen_de: ma_chuyen_de ? Number(ma_chuyen_de) : undefined,
+      trang_thai_su_kien,
+      ticketStatus,
+      ngay_dien_ra,
+      dia_diem,
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 9
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      message: 'Lấy danh sách sự kiện public thành công',
+    });
+  } catch (error) {
+    console.error('Lỗi getPublicEvents:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'SERVER_ERROR',
+      message: error.message || 'Không thể lấy danh sách sự kiện',
+    });
+  }
+};
+
 const getEventById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const event = await eventService.getEventByIdService(id);
+    if (isNaN(id)) {
+      return res.status(400).json({ success: false, message: 'ID không hợp lệ' });
+    }
+    // req.user might be present if they send a token and we have an optional auth middleware
+    // We will get maTaiKhoan if available
+    let maTaiKhoan = null;
+    
+    // Attempt to extract token manually if middleware wasn't strictly applied
+    // Or we assume the route can use optional auth middleware
+    if (req.user?.id) {
+      maTaiKhoan = req.user.id;
+    } else {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.split(' ')[1];
+        try {
+          const jwt = require('jsonwebtoken');
+          const decoded = jwt.verify(token, process.env.JWT_SECRET);
+          maTaiKhoan = decoded.id || decoded.ma_tai_khoan;
+        } catch (e) {}
+      }
+    }
+
+    const event = await eventService.getEventByIdService(id, maTaiKhoan);
 
     if (!event) {
       return res.status(404).json({
@@ -62,6 +114,12 @@ const getEventById = async (req, res, next) => {
       message: 'Lấy chi tiết sự kiện thành công',
     });
   } catch (error) {
+    if (error.code === 'PGRST116') {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy sự kiện',
+      });
+    }
     console.error('Lỗi getEventById:', error);
     return res.status(500).json({
       success: false,
@@ -209,11 +267,22 @@ const deleteEvent = async (req, res, next) => {
   }
 };
 
+const getNotifications = async (req, res) => {
+  try {
+    const data = await eventService.getNotificationsService();
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
+  getPublicEvents,
   getCategories,
   getOrganizerEvents,
   getEventById,
   createEvent,
   updateEvent,
   deleteEvent,
+  getNotifications,
 };
