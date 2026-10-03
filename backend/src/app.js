@@ -14,6 +14,7 @@ const authRoutes = require("./routes/auth.routes");
 const profileRoutes = require("./routes/profile.routes");
 const participantRoutes = require("./routes/participants.routes.js");
 const staffRoutes = require("./routes/staff.routes.js");
+const ticketRoutes = require("./routes/ticket.routes.js");
 
 // ==============================
 // Error handlers
@@ -35,7 +36,7 @@ app.use(helmet());
 // CORS
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: ["http://localhost:5173", "http://localhost:5174", process.env.FRONTEND_URL],
     credentials: true,
   })
 );
@@ -100,6 +101,9 @@ app.use("/api", participantRoutes);
 
 // Staff management (Gói 7 - Phase 2)
 app.use("/api", staffRoutes);
+
+// Ticket Booking (Gói 4)
+app.use("/api/tickets", ticketRoutes);
 
 // ==============================
 // Error Handling

@@ -2,13 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import MainLayout from "../layouts/MainLayout";
-
-import {
-  clearAuthSession,
-} from "../utils/authStorage";
-
 import { apiFetch } from "../services/api";
-
+import { clearAuthSession } from "../utils/authStorage";
 
 // ==================================================
 // Helpers
@@ -18,32 +13,25 @@ function getRoleLabel(role) {
   switch (role) {
     case "SinhVien":
       return "Sinh viên";
-
     case "ToChuc":
       return "Ban tổ chức";
-
     case "NhanVienCheckIn":
       return "Nhân viên check-in";
-
     default:
       return role || "Chưa xác định";
   }
 }
 
-
 function getStatusLabel(status) {
   switch (status) {
     case "HoatDong":
       return "Tài khoản đang hoạt động";
-
     case "Khoa":
       return "Tài khoản đã bị khóa";
-
     default:
       return "Chưa xác định";
   }
 }
-
 
 function getInitials(name) {
   if (!name) {
@@ -56,9 +44,7 @@ function getInitials(name) {
     .filter(Boolean);
 
   if (parts.length === 1) {
-    return parts[0]
-      .slice(0, 2)
-      .toUpperCase();
+    return parts[0].slice(0, 2).toUpperCase();
   }
 
   return (
@@ -67,7 +53,6 @@ function getInitials(name) {
   ).toUpperCase();
 }
 
-
 // ==================================================
 // Profile Page
 // ==================================================
@@ -75,40 +60,40 @@ function getInitials(name) {
 export default function ProfilePage() {
   const navigate = useNavigate();
 
-  // ==============================
-  // Main state
-  // ==============================
   const [user, setUser] = useState(null);
-
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-
   const [editMode, setEditMode] = useState(false);
 
-  // ==============================
-  // Edit form
-  // ==============================
   const [draft, setDraft] = useState({
     ho_ten: "",
     sdt: "",
     khoa: "",
   });
 
-  // ==============================
-  // Avatar modal
-  // ==============================
   const [showAvatarModal, setShowAvatarModal] =
     useState(false);
 
   const [avatarDraft, setAvatarDraft] =
     useState("");
 
+  // ==================================================
+  // Logout
+  // ==================================================
+
+  function handleLogout() {
+    clearAuthSession();
+
+    navigate("/login", {
+      replace: true,
+    });
+  }
 
   // ==================================================
-  // Load profile from Backend
+  // Load profile
   // GET /api/profile
   // ==================================================
 
@@ -146,7 +131,6 @@ export default function ProfilePage() {
           "Không thể tải hồ sơ cá nhân."
       );
 
-      // Token lỗi / hết hạn
       if (err?.status === 401) {
         handleLogout();
       }
@@ -155,14 +139,12 @@ export default function ProfilePage() {
     }
   }
 
-
   useEffect(() => {
     loadProfile();
   }, []);
 
-
   // ==================================================
-  // Start editing
+  // Edit profile
   // ==================================================
 
   function handleStartEdit() {
@@ -182,11 +164,6 @@ export default function ProfilePage() {
     setEditMode(true);
   }
 
-
-  // ==================================================
-  // Cancel editing
-  // ==================================================
-
   function handleCancel() {
     if (!user) {
       return;
@@ -200,10 +177,8 @@ export default function ProfilePage() {
 
     setError("");
     setSuccess("");
-
     setEditMode(false);
   }
-
 
   // ==================================================
   // Save profile
@@ -214,14 +189,16 @@ export default function ProfilePage() {
     setError("");
     setSuccess("");
 
-    if (!draft.ho_ten.trim()) {
+    const hoTen = draft.ho_ten.trim();
+
+    if (!hoTen) {
       setError(
         "Họ và tên không được để trống."
       );
       return;
     }
 
-    if (draft.ho_ten.trim().length < 2) {
+    if (hoTen.length < 2) {
       setError(
         "Họ và tên phải có ít nhất 2 ký tự."
       );
@@ -235,14 +212,10 @@ export default function ProfilePage() {
         "/api/profile",
         {
           method: "PATCH",
-
           body: JSON.stringify({
-            ho_ten:
-              draft.ho_ten.trim(),
-
+            ho_ten: hoTen,
             sdt:
               draft.sdt.trim() || null,
-
             khoa:
               draft.khoa.trim() || null,
           }),
@@ -263,15 +236,12 @@ export default function ProfilePage() {
       setDraft({
         ho_ten:
           updatedProfile.ho_ten || "",
-
         sdt:
           updatedProfile.sdt || "",
-
         khoa:
           updatedProfile.khoa || "",
       });
 
-      // Đồng bộ user đang lưu ở localStorage
       localStorage.setItem(
         "user",
         JSON.stringify(updatedProfile)
@@ -293,10 +263,8 @@ export default function ProfilePage() {
     }
   }
 
-
   // ==================================================
-  // Save avatar URL
-  // PATCH /api/profile
+  // Avatar
   // ==================================================
 
   async function handleSaveAvatar() {
@@ -310,7 +278,6 @@ export default function ProfilePage() {
         "/api/profile",
         {
           method: "PATCH",
-
           body: JSON.stringify({
             avatar_url:
               avatarDraft.trim() ||
@@ -350,22 +317,17 @@ export default function ProfilePage() {
     }
   }
 
-
-  // ==================================================
-  // Remove avatar
-  // ==================================================
-
   async function handleRemoveAvatar() {
+    setError("");
+    setSuccess("");
+
     try {
       setSaving(true);
-      setError("");
-      setSuccess("");
 
       const result = await apiFetch(
         "/api/profile",
         {
           method: "PATCH",
-
           body: JSON.stringify({
             avatar_url: null,
           }),
@@ -375,8 +337,13 @@ export default function ProfilePage() {
       const updatedProfile =
         result?.data;
 
-      setUser(updatedProfile);
+      if (!updatedProfile) {
+        throw new Error(
+          "Không thể xóa ảnh đại diện."
+        );
+      }
 
+      setUser(updatedProfile);
       setAvatarDraft("");
 
       localStorage.setItem(
@@ -399,21 +366,8 @@ export default function ProfilePage() {
     }
   }
 
-
   // ==================================================
-  // Logout
-  // ==================================================
-
-  function handleLogout() {
-    clearAuthSession();
-
-    navigate("/login", {
-      replace: true,
-    });
-  }
-
-  // ==================================================
-  // Loading UI
+  // Loading / fatal error
   // ==================================================
 
   if (loading) {
@@ -421,9 +375,7 @@ export default function ProfilePage() {
       <MainLayout>
         <div className="min-h-[60vh] flex items-center justify-center">
           <div className="text-center">
-            <div
-              className="w-10 h-10 mx-auto mb-3 rounded-full border-4 border-slate-200 border-t-indigo-600 animate-spin"
-            />
+            <div className="w-10 h-10 mx-auto mb-3 rounded-full border-4 border-slate-200 border-t-indigo-600 animate-spin" />
 
             <p className="text-sm text-slate-500">
               Đang tải hồ sơ...
@@ -434,18 +386,11 @@ export default function ProfilePage() {
     );
   }
 
-
-  // ==================================================
-  // Fatal error
-  // ==================================================
-
   if (!user) {
     return (
       <MainLayout>
         <div className="px-4 py-8">
-          <div
-            className="max-w-lg mx-auto p-5 rounded-2xl border border-red-200 bg-red-50"
-          >
+          <div className="max-w-lg mx-auto p-5 rounded-2xl border border-red-200 bg-red-50">
             <p className="text-sm text-red-700 mb-4">
               {error ||
                 "Không thể tải hồ sơ cá nhân."}
@@ -464,7 +409,6 @@ export default function ProfilePage() {
     );
   }
 
-
   const initials =
     getInitials(user.ho_ten);
 
@@ -482,20 +426,15 @@ export default function ProfilePage() {
     user.trang_thai_tai_khoan ===
     "HoatDong";
 
-
   return (
     <MainLayout>
-      {/* ==================================================
-          HEADER
-      ================================================== */}
-
+      {/* Header */}
       <div className="bg-white shadow-sm px-4 pb-6 pt-6">
         <h1 className="font-bold text-xl mb-5 text-slate-900">
           Hồ sơ cá nhân
         </h1>
 
         <div className="flex items-center gap-4">
-          {/* Avatar */}
           <div className="relative">
             <div
               className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center font-bold text-2xl text-white"
@@ -549,7 +488,6 @@ export default function ProfilePage() {
             </button>
           </div>
 
-          {/* User info */}
           <div className="min-w-0">
             <h2 className="font-bold text-lg text-slate-900 truncate">
               {user.ho_ten}
@@ -585,16 +523,10 @@ export default function ProfilePage() {
         </div>
       </div>
 
-
-      {/* ==================================================
-          REAL PROFILE SUMMARY
-      ================================================== */}
-
+      {/* Profile summary */}
       <div className="grid grid-cols-3 gap-3 px-4 py-4">
         <ProfileStat
-          value={
-            user.mssv || "—"
-          }
+          value={user.mssv || "—"}
           label="MSSV"
         />
 
@@ -613,11 +545,7 @@ export default function ProfilePage() {
         />
       </div>
 
-
-      {/* ==================================================
-          MESSAGES
-      ================================================== */}
-
+      {/* Messages */}
       <div className="px-4">
         {error && (
           <div className="mb-4 px-4 py-3 rounded-xl border border-red-200 bg-red-50 text-sm text-red-700">
@@ -632,11 +560,7 @@ export default function ProfilePage() {
         )}
       </div>
 
-
-      {/* ==================================================
-          PROFILE INFO
-      ================================================== */}
-
+      {/* Profile info */}
       <div className="px-4">
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-100">
           <div className="px-4 py-3.5 border-b border-slate-50 flex items-center justify-between">
@@ -647,9 +571,7 @@ export default function ProfilePage() {
             {!editMode && (
               <button
                 type="button"
-                onClick={
-                  handleStartEdit
-                }
+                onClick={handleStartEdit}
                 className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg text-indigo-600 bg-indigo-50"
               >
                 <svg
@@ -671,8 +593,6 @@ export default function ProfilePage() {
             )}
           </div>
 
-
-          {/* Họ tên */}
           <ProfileField
             label="Họ và tên"
             value={user.ho_ten}
@@ -691,22 +611,16 @@ export default function ProfilePage() {
             />
           </ProfileField>
 
-
-          {/* MSSV */}
           <ProfileField
             label="MSSV"
             value={user.mssv || "—"}
           />
 
-
-          {/* Email */}
           <ProfileField
             label="Email"
             value={user.email || "—"}
           />
 
-
-          {/* Khoa */}
           <ProfileField
             label="Khoa / Viện"
             value={user.khoa || "—"}
@@ -725,8 +639,6 @@ export default function ProfilePage() {
             />
           </ProfileField>
 
-
-          {/* Phone */}
           <ProfileField
             label="Số điện thoại"
             value={user.sdt || "—"}
@@ -745,15 +657,11 @@ export default function ProfilePage() {
             />
           </ProfileField>
 
-
-          {/* Role */}
           <ProfileField
             label="Vai trò"
             value={roleLabel}
           />
 
-
-          {/* Account status */}
           <ProfileField
             label="Trạng thái tài khoản"
             value={statusLabel}
@@ -761,11 +669,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-
-      {/* ==================================================
-          ACTIONS
-      ================================================== */}
-
+      {/* Actions */}
       <div className="px-4 mt-4 space-y-3 mb-6">
         {editMode ? (
           <>
@@ -800,11 +704,7 @@ export default function ProfilePage() {
         )}
       </div>
 
-
-      {/* ==================================================
-          AVATAR MODAL
-      ================================================== */}
-
+      {/* Avatar modal */}
       {showAvatarModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50">
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
@@ -837,8 +737,6 @@ export default function ProfilePage() {
               </button>
             </div>
 
-
-            {/* Preview */}
             <div className="flex justify-center mb-5">
               <div
                 className="w-24 h-24 rounded-full overflow-hidden flex items-center justify-center font-bold text-3xl text-white"
@@ -858,7 +756,6 @@ export default function ProfilePage() {
                 )}
               </div>
             </div>
-
 
             <label className="block text-sm font-medium mb-1.5 text-slate-600">
               URL ảnh đại diện
@@ -882,7 +779,6 @@ export default function ProfilePage() {
               upload file trực tiếp.
             </p>
 
-
             <div className="space-y-2 mt-5">
               {user.avatar_url && (
                 <button
@@ -897,7 +793,6 @@ export default function ProfilePage() {
                 </button>
               )}
             </div>
-
 
             <div className="flex gap-3 mt-4">
               <button
@@ -933,7 +828,6 @@ export default function ProfilePage() {
   );
 }
 
-
 // ==================================================
 // Small reusable components
 // ==================================================
@@ -954,7 +848,6 @@ function ProfileStat({
     </div>
   );
 }
-
 
 function ProfileField({
   label,
