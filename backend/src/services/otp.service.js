@@ -13,16 +13,10 @@ const {
   sendPasswordResetOtp,
 } = require("./email.service");
 
-function createServiceError(
-  message,
-  statusCode,
-  code
-) {
+function createServiceError(message, statusCode, code) {
   const error = new Error(message);
-
   error.statusCode = statusCode;
   error.code = code;
-
   return error;
 }
 
@@ -30,11 +24,8 @@ function createServiceError(
 // REQUEST OTP
 // ==========================================
 
-async function requestPasswordResetOtp({
-  email,
-}) {
-  const normalizedEmail =
-    email.toLowerCase().trim();
+async function requestPasswordResetOtp({ email }) {
+  const normalizedEmail = email.toLowerCase().trim();
 
   // 1. Tìm tài khoản
   const {
@@ -60,11 +51,10 @@ async function requestPasswordResetOtp({
     );
   }
 
-  // Không tiết lộ email có tồn tại hay không
+  // Không tiết lộ email có tồn tại hay không.
   if (
     !user ||
-    user.trang_thai_tai_khoan !==
-      "HoatDong"
+    user.trang_thai_tai_khoan !== "HoatDong"
   ) {
     return;
   }
@@ -92,8 +82,7 @@ async function requestPasswordResetOtp({
   const otp = generateOtp();
 
   // 4. Hash OTP
-  const otpHash =
-    await argon2.hash(otp);
+  const otpHash = await argon2.hash(otp);
 
   // 5. Thời gian hết hạn
   const expiresMinutes = Number(
@@ -101,8 +90,7 @@ async function requestPasswordResetOtp({
   );
 
   const expiresAt = new Date(
-    Date.now() +
-      expiresMinutes * 60 * 1000
+    Date.now() + expiresMinutes * 60 * 1000
   ).toISOString();
 
   // 6. Lưu OTP hash
@@ -135,16 +123,13 @@ async function requestPasswordResetOtp({
       otp
     );
   } catch (error) {
-    // Gửi thất bại → OTP không còn hợp lệ
+    // Nếu gửi thất bại thì OTP vừa tạo phải bị vô hiệu.
     await supabase
       .from("otp_quen_mat_khau")
       .update({
         da_su_dung: true,
       })
-      .eq(
-        "ma_otp",
-        otpRecord.ma_otp
-      );
+      .eq("ma_otp", otpRecord.ma_otp);
 
     throw createServiceError(
       "Không thể gửi mã OTP",
@@ -162,8 +147,7 @@ async function verifyPasswordResetOtp({
   email,
   otp,
 }) {
-  const normalizedEmail =
-    email.toLowerCase().trim();
+  const normalizedEmail = email.toLowerCase().trim();
 
   // 1. Tìm account
   const {
@@ -191,8 +175,7 @@ async function verifyPasswordResetOtp({
 
   if (
     !user ||
-    user.trang_thai_tai_khoan !==
-      "HoatDong"
+    user.trang_thai_tai_khoan !== "HoatDong"
   ) {
     throw createServiceError(
       "OTP không hợp lệ hoặc đã hết hạn",
@@ -217,12 +200,9 @@ async function verifyPasswordResetOtp({
     `)
     .eq("email", normalizedEmail)
     .eq("da_su_dung", false)
-    .order(
-      "thoi_gian_tao",
-      {
-        ascending: false,
-      }
-    )
+    .order("thoi_gian_tao", {
+      ascending: false,
+    })
     .limit(1);
 
   if (otpError) {
@@ -233,8 +213,7 @@ async function verifyPasswordResetOtp({
     );
   }
 
-  const otpRecord =
-    otpRecords?.[0];
+  const otpRecord = otpRecords?.[0];
 
   if (!otpRecord) {
     throw createServiceError(
@@ -245,10 +224,9 @@ async function verifyPasswordResetOtp({
   }
 
   // 3. Kiểm tra hết hạn
-  const expiresAt =
-    new Date(
-      otpRecord.thoi_gian_het_han
-    ).getTime();
+  const expiresAt = new Date(
+    otpRecord.thoi_gian_het_han
+  ).getTime();
 
   if (expiresAt <= Date.now()) {
     await supabase
@@ -256,10 +234,7 @@ async function verifyPasswordResetOtp({
       .update({
         da_su_dung: true,
       })
-      .eq(
-        "ma_otp",
-        otpRecord.ma_otp
-      );
+      .eq("ma_otp", otpRecord.ma_otp);
 
     throw createServiceError(
       "OTP đã hết hạn",
@@ -272,11 +247,10 @@ async function verifyPasswordResetOtp({
   let validOtp = false;
 
   try {
-    validOtp =
-      await argon2.verify(
-        otpRecord.ma_code,
-        otp
-      );
+    validOtp = await argon2.verify(
+      otpRecord.ma_code,
+      otp
+    );
   } catch (error) {
     validOtp = false;
   }
@@ -289,10 +263,9 @@ async function verifyPasswordResetOtp({
     );
   }
 
-  // 5. OTP đúng → cấp resetToken
-  //
-  // CHƯA đánh dấu OTP đã sử dụng.
-  // OTP chỉ được consume khi reset password thành công.
+  // 5. OTP đúng -> cấp resetToken.
+  // Không consume OTP tại bước verify.
+  // OTP chỉ được consume atomically cùng password update trong RPC.
   const resetToken =
     generatePasswordResetToken(
       user.ma_tai_khoan,
@@ -316,15 +289,11 @@ async function resetPassword({
 
   // 1. Verify reset token
   try {
-    payload =
-      verifyPasswordResetToken(
-        resetToken
-      );
+    payload = verifyPasswordResetToken(
+      resetToken
+    );
   } catch (error) {
-    if (
-      error.name ===
-      "TokenExpiredError"
-    ) {
+    if (error?.name === "TokenExpiredError") {
       throw createServiceError(
         "Reset token đã hết hạn",
         401,
@@ -339,15 +308,15 @@ async function resetPassword({
     );
   }
 
-  const accountId =
-    Number(payload.sub);
+  const accountId = Number(payload?.sub);
+  const otpId = Number(payload?.otpId);
 
-  const otpId =
-    Number(payload.otpId);
-
+  // Chỉ chấp nhận integer dương.
   if (
     !Number.isInteger(accountId) ||
-    !Number.isInteger(otpId)
+    accountId <= 0 ||
+    !Number.isInteger(otpId) ||
+    otpId <= 0
   ) {
     throw createServiceError(
       "Reset token không hợp lệ",
@@ -356,37 +325,10 @@ async function resetPassword({
     );
   }
 
-  // 2. Tìm account
-  const {
-    data: user,
-    error: userError,
-  } = await supabase
-    .from("tai_khoan")
-    .select(`
-      ma_tai_khoan,
-      email,
-      trang_thai_tai_khoan,
-      da_xoa
-    `)
-    .eq(
-      "ma_tai_khoan",
-      accountId
-    )
-    .eq("da_xoa", false)
-    .maybeSingle();
-
-  if (userError) {
-    throw createServiceError(
-      "Không thể kiểm tra tài khoản",
-      500,
-      "ACCOUNT_LOOKUP_ERROR"
-    );
-  }
-
+  // Nếu payload có type thì phải đúng loại password_reset.
   if (
-    !user ||
-    user.trang_thai_tai_khoan !==
-      "HoatDong"
+    payload?.type !== undefined &&
+    payload.type !== "password_reset"
   ) {
     throw createServiceError(
       "Reset token không hợp lệ",
@@ -395,116 +337,45 @@ async function resetPassword({
     );
   }
 
-  // 3. Kiểm tra OTP gắn với token
-  const {
-    data: otpRecord,
-    error: otpError,
-  } = await supabase
-    .from("otp_quen_mat_khau")
-    .select(`
-      ma_otp,
-      email,
-      thoi_gian_het_han,
-      da_su_dung
-    `)
-    .eq("ma_otp", otpId)
-    .eq("email", user.email)
-    .eq("da_su_dung", false)
-    .maybeSingle();
+  // 2. Hash password mới
+  let passwordHash;
 
-  if (otpError) {
-    throw createServiceError(
-      "Không thể kiểm tra OTP",
-      500,
-      "OTP_LOOKUP_ERROR"
-    );
-  }
-
-  if (!otpRecord) {
-    throw createServiceError(
-      "OTP đã được sử dụng hoặc không còn hợp lệ",
-      401,
-      "OTP_ALREADY_USED"
-    );
-  }
-
-  // 4. Kiểm tra OTP hết hạn
-  if (
-    new Date(
-      otpRecord.thoi_gian_het_han
-    ).getTime() <= Date.now()
-  ) {
-    await supabase
-      .from("otp_quen_mat_khau")
-      .update({
-        da_su_dung: true,
-      })
-      .eq("ma_otp", otpId);
-
-    throw createServiceError(
-      "OTP đã hết hạn",
-      401,
-      "OTP_EXPIRED"
-    );
-  }
-
-  // 5. Hash password mới trước
-  const passwordHash =
-    await argon2.hash(
+  try {
+    passwordHash = await argon2.hash(
       newPassword
     );
-
-  // 6. Consume OTP bằng điều kiện
-  // da_su_dung = false
-  //
-  // Giúp chống 2 request reset cùng lúc.
-  const {
-    data: consumedOtp,
-    error: consumeError,
-  } = await supabase
-    .from("otp_quen_mat_khau")
-    .update({
-      da_su_dung: true,
-    })
-    .eq("ma_otp", otpId)
-    .eq("email", user.email)
-    .eq("da_su_dung", false)
-    .select("ma_otp")
-    .maybeSingle();
-
-  if (consumeError) {
+  } catch (error) {
     throw createServiceError(
-      "Không thể xác nhận OTP",
+      "Không thể mã hóa mật khẩu mới",
       500,
-      "OTP_CONSUME_ERROR"
+      "PASSWORD_HASH_ERROR"
     );
   }
 
-  if (!consumedOtp) {
-    throw createServiceError(
-      "OTP đã được sử dụng",
-      401,
-      "OTP_ALREADY_USED"
+  // 3. Reset atomically trong PostgreSQL.
+  //
+  // RPC chịu trách nhiệm:
+  // - lock account
+  // - lock OTP
+  // - kiểm tra account/OTP
+  // - kiểm tra OTP đã dùng/hết hạn
+  // - update password
+  // - consume OTP
+  //
+  // Không được tự update tai_khoan hoặc otp_quen_mat_khau
+  // bằng supabase.from() trong resetPassword().
+  let rpcResponse;
+
+  try {
+    rpcResponse = await supabase.rpc(
+      "reset_password_with_otp",
+      {
+        p_account_id: accountId,
+        p_otp_id: otpId,
+        p_password_hash: passwordHash,
+      }
     );
-  }
-
-  // 7. Update password
-  const {
-    error: updateError,
-  } = await supabase
-    .from("tai_khoan")
-    .update({
-      mat_khau: passwordHash,
-      thoi_gian_cap_nhat:
-        new Date().toISOString(),
-    })
-    .eq(
-      "ma_tai_khoan",
-      accountId
-    )
-    .eq("da_xoa", false);
-
-  if (updateError) {
+  } catch (error) {
     throw createServiceError(
       "Không thể cập nhật mật khẩu",
       500,
@@ -512,14 +383,103 @@ async function resetPassword({
     );
   }
 
-  // 8. Vô hiệu toàn bộ OTP còn lại
-  await supabase
-    .from("otp_quen_mat_khau")
-    .update({
-      da_su_dung: true,
-    })
-    .eq("email", user.email)
-    .eq("da_su_dung", false);
+  if (
+    !rpcResponse ||
+    typeof rpcResponse !== "object"
+  ) {
+    throw createServiceError(
+      "Không thể cập nhật mật khẩu",
+      500,
+      "PASSWORD_UPDATE_ERROR"
+    );
+  }
+
+  const {
+    data,
+    error: rpcError,
+  } = rpcResponse;
+
+  if (rpcError) {
+    throw createServiceError(
+      "Không thể cập nhật mật khẩu",
+      500,
+      "PASSWORD_UPDATE_ERROR"
+    );
+  }
+
+  // Supabase/PostgREST thường trả object,
+  // nhưng test/một số cấu hình có thể trả array 1 phần tử.
+  const result = Array.isArray(data)
+    ? data[0]
+    : data;
+
+  if (
+    !result ||
+    typeof result !== "object"
+  ) {
+    throw createServiceError(
+      "Không thể cập nhật mật khẩu",
+      500,
+      "PASSWORD_UPDATE_ERROR"
+    );
+  }
+
+  // 4. Happy path
+  if (
+    result.success === true &&
+    result.code ===
+      "PASSWORD_RESET_SUCCESS"
+  ) {
+    return;
+  }
+
+  // success=true nhưng code không đúng contract.
+  if (result.success === true) {
+    throw createServiceError(
+      "Phản hồi đặt lại mật khẩu không hợp lệ",
+      500,
+      "PASSWORD_UPDATE_ERROR"
+    );
+  }
+
+  // 5. Map business errors từ RPC
+  switch (result.code) {
+    case "INVALID_ACCOUNT":
+    case "INVALID_RESET_TOKEN":
+      throw createServiceError(
+        "Reset token không hợp lệ",
+        401,
+        "INVALID_RESET_TOKEN"
+      );
+
+    case "INVALID_OTP":
+      throw createServiceError(
+        "OTP không hợp lệ",
+        401,
+        "INVALID_OTP"
+      );
+
+    case "OTP_ALREADY_USED":
+      throw createServiceError(
+        "OTP đã được sử dụng",
+        401,
+        "OTP_ALREADY_USED"
+      );
+
+    case "OTP_EXPIRED":
+      throw createServiceError(
+        "OTP đã hết hạn",
+        401,
+        "OTP_EXPIRED"
+      );
+
+    default:
+      throw createServiceError(
+        "Không thể cập nhật mật khẩu",
+        500,
+        "PASSWORD_UPDATE_ERROR"
+      );
+  }
 }
 
 module.exports = {

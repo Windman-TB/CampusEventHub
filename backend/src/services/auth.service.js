@@ -252,63 +252,8 @@ async function loginUser(loginData) {
 // ========================================
 // DEMO LOGIN (cho quick login trên giao diện)
 // ========================================
-async function demoLoginUser(role) {
-  let query = supabase
-    .from("tai_khoan")
-    .select(`
-      ma_tai_khoan,
-      mssv,
-      email,
-      ho_ten,
-      sdt,
-      khoa,
-      avatar_url,
-      loai_tai_khoan,
-      trang_thai_tai_khoan,
-      da_xoa
-    `)
-    .eq("da_xoa", false)
-    .eq("trang_thai_tai_khoan", "HoatDong");
-
-  if (role === "organizer") {
-    query = query.eq("loai_tai_khoan", "ToChuc");
-  } else if (role === "staff") {
-    query = query.or("loai_tai_khoan.eq.NhanVienCheckIn,loai_tai_khoan.eq.SinhVien");
-  } else {
-    query = query.eq("loai_tai_khoan", "SinhVien");
-  }
-
-  const { data: users, error } = await query
-    .order("ma_tai_khoan", { ascending: true })
-    .limit(1);
-
-  if (error || !users || users.length === 0) {
-    const notFoundErr = new Error("Không tìm thấy tài khoản demo phù hợp");
-    notFoundErr.statusCode = 404;
-    throw notFoundErr;
-  }
-
-  const user = users[0];
-  const accessToken = generateAccessToken(user);
-
-  return {
-    accessToken,
-    user: {
-      ma_tai_khoan: user.ma_tai_khoan,
-      mssv: user.mssv,
-      email: user.email,
-      ho_ten: user.ho_ten,
-      sdt: user.sdt,
-      khoa: user.khoa,
-      avatar_url: user.avatar_url,
-      loai_tai_khoan: user.loai_tai_khoan,
-      trang_thai_tai_khoan: user.trang_thai_tai_khoan,
-    },
-  };
-}
 
 module.exports = {
   registerUser,
   loginUser,
-  demoLoginUser,
 };

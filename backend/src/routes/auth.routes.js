@@ -50,10 +50,6 @@ router.post(
 // DEMO LOGIN (Quick login trên UI)
 // POST /api/auth/demo-login
 // ==============================
-router.post(
-  "/demo-login",
-  authController.demoLogin
-);
 
 // ==============================
 // TEST AUTHENTICATION

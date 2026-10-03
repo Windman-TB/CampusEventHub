@@ -68,42 +68,6 @@ async function login(req, res) {
 // DEMO LOGIN
 // ==============================
 
-async function demoLogin(req, res) {
-  try {
-    const { role } = req.body || {};
-
-    const result =
-      await authService.demoLoginUser(
-        role || "organizer"
-      );
-
-    return res.status(200).json({
-      success: true,
-      message: "Đăng nhập Demo thành công",
-      data: result,
-    });
-  } catch (error) {
-    console.error(
-      "Demo login error:",
-      error
-    );
-
-    return res
-      .status(error.statusCode || 500)
-      .json({
-        success: false,
-        message:
-          error.message ||
-          "Đăng nhập Demo thất bại",
-        error: error.code
-          ? {
-              code: error.code,
-            }
-          : null,
-      });
-  }
-}
-
 // ========================================
 // REQUEST PASSWORD RESET OTP
 // ========================================
@@ -236,7 +200,6 @@ async function resetPassword(
 module.exports = {
   register,
   login,
-  demoLogin,
   requestPasswordResetOtp,
   verifyPasswordResetOtp,
   resetPassword,
