@@ -1,155 +1,121 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { MOCK_EVENTS } from '../mocks/mockData';
+import { useLocation, Link } from 'react-router-dom';
 
-/**
- * TicketConfirmPage
- * Hiển thị sau khi sinh viên đăng ký sự kiện thành công.
- * Nhận state từ navigation: { ticketId, eventId }
- * Fallback về MOCK_EVENTS[0] nếu không có state (truy cập trực tiếp URL).
- */
-export default function TicketConfirmPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
+const TicketConfirmPage = () => {
+    const location = useLocation();
+    const event = location.state?.event;
 
-  // Lấy thông tin từ navigation state hoặc dùng mock fallback
-  const {
-    ticketId = 'TKT-2026-001234',
-    eventId = '1',
-    studentName = 'Nguyễn Văn A',
-    studentId = '22521001',
-    faculty = 'Công nghệ Thông tin',
-  } = location.state || {};
+    const [isLoading, setIsLoading] = useState(false);
+    const [qrData, setQrData] = useState(null);
+    const [errorMsg, setErrorMsg] = useState('');
 
-  const event = MOCK_EVENTS.find((e) => e.id === eventId) || MOCK_EVENTS[0];
-
-  // QR value: format đủ thông tin để staff scanner đọc được
-  const qrValue = `${ticketId}|${event.id}|${studentId}`;
-
-  return (
-    <div
-      className="min-h-screen flex flex-col items-center animate-fade-in"
-      style={{ background: '#f4f5f9' }}
-    >
-      {/* Top spacing */}
-      <div className="w-full shrink-0 h-10" />
-
-      <div className="flex flex-col items-center px-4 py-6 w-full max-w-md mx-auto">
-
-        {/* Success icon + heading */}
-        <div className="mt-6 mb-6 flex flex-col items-center hover-scale">
-          <div
-            className="w-20 h-20 rounded-full flex items-center justify-center mb-4 shadow-md"
-            style={{ background: '#dcfce7' }}
-          >
-            <svg
-              className="w-10 h-10"
-              style={{ color: '#059669' }}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2.5}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-            </svg>
-          </div>
-          <h1 className="font-display font-bold text-2xl text-center" style={{ color: '#1a1a2e' }}>
-            Đăng ký giữ chỗ thành công!
-          </h1>
-          <p className="text-center text-sm mt-2" style={{ color: '#64748b' }}>
-            Mã vé đã được tạo và lưu vào hồ sơ của bạn
-          </p>
-        </div>
-
-        {/* Ticket card */}
-        <div className="glass rounded-3xl overflow-hidden w-full hover-scale">
-
-          {/* Top gradient band */}
-          <div
-            className="px-6 py-4"
-            style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)' }}
-          >
-            <p className="text-xs font-medium mb-1" style={{ color: '#c7d2fe' }}>
-              SỰ KIỆN
-            </p>
-            <h2 className="text-white font-bold text-base leading-tight">
-              {event.title}
-            </h2>
-          </div>
-
-          {/* Ticket details */}
-          <div className="px-6 py-4 space-y-3 bg-white">
-            <TicketRow emoji="📅" label="Thời gian"
-              value={`${new Date(event.date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })} · ${event.startTime} – ${event.endTime}`}
-            />
-            <TicketRow emoji="📍" label="Địa điểm" value={`${event.location} — ${event.room}`} />
-            <TicketRow emoji="🎓" label="Sinh viên" value={`${studentName} · ${studentId}`} />
-            <TicketRow emoji="🏛️" label="Khoa" value={faculty} />
-          </div>
-
-          {/* Dashed separator */}
-          <div className="flex items-center px-6 bg-white">
-            <div className="flex-1 border-t border-dashed" style={{ borderColor: 'rgba(0,0,0,0.1)' }} />
-            <div className="w-4 h-4 rounded-full mx-2 flex-shrink-0" style={{ background: '#f4f5f9' }} />
-            <div className="flex-1 border-t border-dashed" style={{ borderColor: 'rgba(0,0,0,0.1)' }} />
-          </div>
-
-          {/* QR Code section */}
-          <div className="px-6 py-6 flex flex-col items-center bg-white rounded-b-3xl">
-            <div
-              className="w-48 h-48 rounded-2xl flex items-center justify-center mb-3 bg-white shadow-sm"
-              style={{ border: '1px solid rgba(0,0,0,0.06)', padding: '12px' }}
-            >
-              <QRCodeSVG
-                value={qrValue}
-                size={168}
-                level="M"
-                fgColor="#1a1a2e"
-                bgColor="transparent"
-              />
+    // Lấy thông tin user từ localStorage 
+    const storedUser = localStorage.getItem('user');
+    const displayUser = storedUser ? JSON.parse(storedUser) : null;
+    
+    // Nếu không có event (do truy cập trực tiếp link), hiển thị lỗi thân thiện
+    if (!event) {
+        return (
+            <div className="max-w-md mx-auto p-6 bg-white rounded-xl shadow-lg border border-gray-100 mt-10 text-center">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">Lỗi truy cập</h2>
+                <p className="text-gray-600 mb-6">Bạn chưa chọn sự kiện nào để đặt vé. Vui lòng quay lại trang chủ.</p>
+                <Link to="/home" className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Về Trang Chủ
+                </Link>
             </div>
-            <p
-              className="font-mono font-bold text-sm tracking-wider"
-              style={{ color: '#1a1a2e', fontFamily: 'var(--font-mono)' }}
-            >
-              {ticketId}
-            </p>
-            <p className="text-xs mt-1" style={{ color: '#94a3b8' }}>
-              Xuất trình mã này khi check-in
-            </p>
-          </div>
+        );
+    }
+
+    const handleBookTicket = async () => {
+        setIsLoading(true);
+        setErrorMsg('');
+        
+        try {
+            const token = sessionStorage.getItem('token');
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            
+            const response = await fetch(`${apiUrl}/api/tickets/book`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ eventId: event.id })
+            });
+
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.message || data.error || 'Lỗi đặt vé');
+            }
+
+            // Lưu QR code data để render
+            setQrData(data.data.qrCode);
+            
+        } catch (error) {
+            setErrorMsg(error.message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="max-w-md mx-auto p-6 bg-white rounded-xl shadow-lg border border-gray-100 mt-10">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4 text-center">Xác nhận Đặt Vé</h2>
+            
+            {!qrData ? (
+                <>
+                    <div className="mb-6 space-y-3 text-sm text-gray-600">
+                        <p><strong>Sự kiện:</strong> {event.title || event.name}</p>
+                        <p><strong>Người đặt:</strong> {displayUser?.ho_ten || displayUser?.name || 'Chưa đăng nhập'} ({displayUser?.mssv || 'N/A'})</p>
+                        <p className="text-red-500 text-xs italic">
+                            * Vui lòng kiểm tra kỹ thông tin. Vé sau khi xuất sẽ không thể chuyển nhượng.
+                        </p>
+                    </div>
+
+                    {errorMsg && (
+                        <div className="p-3 mb-4 text-sm text-red-600 bg-red-50 rounded-lg">
+                            {errorMsg}
+                        </div>
+                    )}
+
+                    <button 
+                        onClick={handleBookTicket}
+                        disabled={isLoading}
+                        className={`w-full py-3 rounded-lg font-semibold text-white transition-all 
+                            ${isLoading ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg'}`}
+                    >
+                        {isLoading ? 'Đang xử lý...' : 'Xác nhận Đặt Vé Ngay'}
+                    </button>
+                </>
+            ) : (
+                <div className="flex flex-col items-center justify-center space-y-4">
+                    <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-2">
+                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </div>
+                    <h3 className="text-xl font-semibold text-green-600">Đặt vé thành công!</h3>
+                    <p className="text-sm text-gray-500 text-center mb-4">
+                        Đưa mã QR này cho Ban Tổ Chức khi check-in vào sự kiện.
+                    </p>
+                    
+                    <div className="p-4 bg-white border-2 border-dashed border-gray-300 rounded-xl inline-block">
+                        <QRCodeSVG value={qrData} size={200} />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2 font-mono break-all text-center">ID: {qrData}</p>
+                    
+                    <button 
+                        className="mt-6 px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                        onClick={() => window.location.reload()}
+                    >
+                        Đóng
+                    </button>
+                </div>
+            )}
         </div>
+    );
+};
 
-        {/* Action buttons */}
-        <div className="w-full space-y-3 mt-8">
-          <button
-            onClick={() => navigate('/tickets')}
-            className="btn-primary w-full py-3.5 rounded-2xl font-semibold text-sm"
-          >
-            Xem trong Vé của tôi
-          </button>
-          <button
-            onClick={() => navigate('/')}
-            className="w-full py-3 text-sm font-medium hover-scale"
-            style={{ color: '#64748b' }}
-          >
-            Quay về trang chủ
-          </button>
-        </div>
-
-      </div>
-    </div>
-  );
-}
-
-function TicketRow({ emoji, label, value }) {
-  return (
-    <div className="flex items-start gap-3">
-      <span className="text-base">{emoji}</span>
-      <div>
-        <p className="text-xs" style={{ color: '#94a3b8' }}>{label}</p>
-        <p className="text-sm font-medium" style={{ color: '#1a1a2e' }}>{value}</p>
-      </div>
-    </div>
-  );
-}
+export default TicketConfirmPage;
