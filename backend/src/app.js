@@ -15,6 +15,7 @@ const profileRoutes = require("./routes/profile.routes");
 const participantRoutes = require("./routes/participants.routes.js");
 const staffRoutes = require("./routes/staff.routes.js");
 const ticketRoutes = require("./routes/ticket.routes.js");
+const dashboardRoutes = require("./routes/dashboard.routes.js");
 
 // ==============================
 // Error handlers
@@ -104,6 +105,8 @@ app.use("/api", staffRoutes);
 
 // Ticket Booking (Gói 4)
 app.use("/api/tickets", ticketRoutes);
+// Dashboard & Analytics (Gói 6)
+app.use("/api", dashboardRoutes);
 
 // ==============================
 // Error Handling
