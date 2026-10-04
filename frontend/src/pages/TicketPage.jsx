@@ -15,7 +15,7 @@ export default function TicketPage() {
 
   const fetchTickets = async () => {
     try {
-      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+      const token = localStorage.getItem('accessToken');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const res = await fetch(`${apiUrl}/api/tickets/my-tickets`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -37,7 +37,7 @@ export default function TicketPage() {
     
     setCancelingId(ticketId);
     try {
-      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+      const token = localStorage.getItem('accessToken');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const res = await fetch(`${apiUrl}/api/tickets/${ticketId}/cancel`, {
         method: 'POST',

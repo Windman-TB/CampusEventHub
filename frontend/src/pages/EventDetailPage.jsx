@@ -243,13 +243,7 @@ export default function EventDetailPage() {
               setRegistering(false);
               setRegistered(true);
               navigate('/ticket-confirm', {
-                state: {
-                  ticketId: generateTicketId(),
-                  eventId: event.ma_su_kien,
-                  studentName: studentInfo.name,
-                  studentId: studentInfo.mssv,
-                  faculty: studentInfo.faculty,
-                },
+                state: { event: { id: event.ma_su_kien, title: event.ten_su_kien } }
               });
             }, 1000);
           }}
