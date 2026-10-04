@@ -60,12 +60,14 @@ export default function EventDetailPage() {
   const dayName = dateObj.toLocaleDateString('vi-VN', { weekday: 'long' });
   const dateStr = dateObj.toLocaleDateString('vi-VN');
   
-  // Dữ liệu Mock User Info cho mục Form "Thông tin đăng ký"
+  const storedUser = localStorage.getItem('user');
+  const user = storedUser ? JSON.parse(storedUser) : {};
+  
   const studentInfo = {
-    mssv: '22521001',
-    name: 'Cao Duy Anh',
-    email: 'caoduyanh@uit.edu.vn',
-    faculty: 'Công nghệ Thông tin'
+    mssv: user.mssv || 'Chưa cập nhật',
+    name: user.ho_ten || user.name || 'Chưa cập nhật',
+    email: user.email || 'Chưa cập nhật',
+    faculty: user.khoa || 'Công nghệ Thông tin'
   };
 
   return (
