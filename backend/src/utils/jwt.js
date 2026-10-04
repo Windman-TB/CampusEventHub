@@ -9,7 +9,8 @@ function generateAccessToken(user) {
     },
     process.env.JWT_SECRET,
     {
-      expiresIn: process.env.JWT_EXPIRES_IN || "1h",
+      expiresIn:
+        process.env.JWT_EXPIRES_IN || "1h",
     }
   );
 }
@@ -29,7 +30,51 @@ function verifyAccessToken(token) {
   return payload;
 }
 
+// ==========================================
+// PASSWORD RESET TOKEN
+// ==========================================
+
+function generatePasswordResetToken(
+  accountId,
+  otpId
+) {
+  return jwt.sign(
+    {
+      sub: String(accountId),
+      type: "password_reset",
+      otpId,
+    },
+    process.env.JWT_SECRET,
+    {
+      expiresIn:
+        process.env.RESET_TOKEN_EXPIRES_IN ||
+        "10m",
+    }
+  );
+}
+
+function verifyPasswordResetToken(token) {
+  const payload = jwt.verify(
+    token,
+    process.env.JWT_SECRET
+  );
+
+  if (payload.type !== "password_reset") {
+    const error = new Error(
+      "Reset token không hợp lệ"
+    );
+
+    error.name = "JsonWebTokenError";
+
+    throw error;
+  }
+
+  return payload;
+}
+
 module.exports = {
   generateAccessToken,
   verifyAccessToken,
+  generatePasswordResetToken,
+  verifyPasswordResetToken,
 };

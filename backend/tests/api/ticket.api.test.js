@@ -1,88 +1,114 @@
-const request = require('supertest');
-const express = require('express');
-const ticketRoutes = require('../../src/routes/ticket.routes');
-const ticketService = require('../../src/services/ticket.service');
+﻿jest.mock("../../src/services/ticket.service", () => ({
+  bookTicket: jest.fn(),
+  getMyTickets: jest.fn(),
+  cancelTicket: jest.fn(),
+}));
 
-const app = express();
-app.use(express.json());
-
-// Mock middleware
-jest.mock('../../src/middlewares/auth.middleware', () => {
-    return (req, res, next) => {
-        req.user = { id: 1, role: 'SinhVien' }; // Mock user
-        next();
+jest.mock("../../src/middlewares/auth.middleware", () => {
+  return (req, res, next) => {
+    req.user = {
+      id: 1,
+      role: "SinhVien",
     };
+
+    next();
+  };
 });
 
-app.use('/api/tickets', ticketRoutes);
+const request = require("supertest");
+const express = require("express");
 
-jest.mock('../../src/services/ticket.service');
+const ticketRoutes = require("../../src/routes/ticket.routes");
+const ticketService = require("../../src/services/ticket.service");
 
-describe('Ticket API Endpoints', () => {
-    beforeEach(() => {
-        jest.clearAllMocks();
+const app = express();
+
+app.use(express.json());
+app.use("/api/tickets", ticketRoutes);
+
+describe("Ticket API Endpoints", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe("POST /api/tickets/book", () => {
+    it("should return 400 if eventId is missing", async () => {
+      const res = await request(app)
+        .post("/api/tickets/book")
+        .send({});
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toBe("Thiếu ID sự kiện");
     });
 
-    describe('POST /api/tickets/book', () => {
-        it('should return 400 if eventId is missing', async () => {
-            const res = await request(app)
-                .post('/api/tickets/book')
-                .send({});
-            
-            expect(res.statusCode).toBe(400);
-            expect(res.body.success).toBe(false);
-            expect(res.body.message).toBe('Thiếu ID sự kiện');
+    it("should return 200 on successful booking", async () => {
+      ticketService.bookTicket.mockResolvedValue({
+        qrCode: "mock-qr-code",
+        message: "Đặt vé thành công",
+      });
+
+      const res = await request(app)
+        .post("/api/tickets/book")
+        .send({
+          eventId: 10,
         });
 
-        it('should return 200 on successful booking', async () => {
-            ticketService.bookTicket.mockResolvedValue({
-                qrCode: 'mock-qr-code',
-                message: 'Đặt vé thành công'
-            });
-
-            const res = await request(app)
-                .post('/api/tickets/book')
-                .send({ eventId: 10 });
-            
-            expect(res.statusCode).toBe(200);
-            expect(res.body.success).toBe(true);
-            expect(res.body.data.qrCode).toBe('mock-qr-code');
-        });
-
-        it('should return 400 if service throws error', async () => {
-            ticketService.bookTicket.mockRejectedValue(new Error('Sự kiện hết vé'));
-
-            const res = await request(app)
-                .post('/api/tickets/book')
-                .send({ eventId: 10 });
-            
-            expect(res.statusCode).toBe(400);
-            expect(res.body.success).toBe(false);
-            expect(res.body.message).toBe('Sự kiện hết vé');
-        });
+      expect(res.statusCode).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.qrCode).toBe("mock-qr-code");
     });
 
-    describe('GET /api/tickets/my-tickets', () => {
-        it('should return list of tickets', async () => {
-            ticketService.getMyTickets.mockResolvedValue([{ id: 1, eventId: 10 }]);
+    it("should return 400 if service throws error", async () => {
+      ticketService.bookTicket.mockRejectedValue(
+        new Error("Sự kiện hết vé")
+      );
 
-            const res = await request(app).get('/api/tickets/my-tickets');
-            
-            expect(res.statusCode).toBe(200);
-            expect(res.body.success).toBe(true);
-            expect(res.body.data.length).toBe(1);
+      const res = await request(app)
+        .post("/api/tickets/book")
+        .send({
+          eventId: 10,
         });
-    });
 
-    describe('POST /api/tickets/:id/cancel', () => {
-        it('should return 200 on successful cancellation', async () => {
-            ticketService.cancelTicket.mockResolvedValue({ id: 1, status: 'DaHuy' });
-
-            const res = await request(app).post('/api/tickets/1/cancel');
-            
-            expect(res.statusCode).toBe(200);
-            expect(res.body.success).toBe(true);
-            expect(res.body.message).toBe('Hủy vé thành công');
-        });
+      expect(res.statusCode).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toBe("Sự kiện hết vé");
     });
+  });
+
+  describe("GET /api/tickets/my-tickets", () => {
+    it("should return list of tickets", async () => {
+      ticketService.getMyTickets.mockResolvedValue([
+        {
+          id: 1,
+          eventId: 10,
+        },
+      ]);
+
+      const res = await request(app).get(
+        "/api/tickets/my-tickets"
+      );
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.length).toBe(1);
+    });
+  });
+
+  describe("POST /api/tickets/:id/cancel", () => {
+    it("should return 200 on successful cancellation", async () => {
+      ticketService.cancelTicket.mockResolvedValue({
+        id: 1,
+        status: "DaHuy",
+      });
+
+      const res = await request(app).post(
+        "/api/tickets/1/cancel"
+      );
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toBe("Hủy vé thành công");
+    });
+  });
 });
