@@ -72,3 +72,12 @@ export async function deleteEvent(id) {
 export async function fetchEventById(id) {
   return apiFetch(`/api/events/${id}`);
 }
+
+// 6. API tải ảnh bìa sự kiện (POST /api/events/upload-banner)
+export async function uploadEventBanner(payload) {
+  return apiFetch("/api/events/upload-banner", {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
