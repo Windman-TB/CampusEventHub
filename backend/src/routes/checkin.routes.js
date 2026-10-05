@@ -1,22 +1,29 @@
-const express = require('express');
-const router = express.Router();
-const checkinCtrl = require('../controllers/checkin.controller');
-const authenticate = require('../middlewares/auth.middleware');
-const authorizeRoles = require('../middlewares/role.middleware');
+const express = require("express");
+const checkinController = require("../controllers/checkin.controller.js");
+const authenticate = require("../middlewares/auth.middleware.js");
+const authorizeRoles = require("../middlewares/role.middleware.js");
 
-// Chỉ Nhân viên điểm danh (hoặc Ban tổ chức) mới được truy cập
+const router = express.Router();
+
 router.get(
-  '/checkin/events',
+  "/assigned-events",
   authenticate,
-  authorizeRoles('NhanVienCheckIn', 'ToChuc'),
-  checkinCtrl.getMyCheckinEvents
+  authorizeRoles("NhanVienCheckIn", "ToChuc"),
+  checkinController.getAssignedEvents
 );
 
 router.post(
-  '/checkin/scan',
+  "/scan",
   authenticate,
-  authorizeRoles('NhanVienCheckIn', 'ToChuc'),
-  checkinCtrl.scanQRCode
+  authorizeRoles("NhanVienCheckIn", "ToChuc"),
+  checkinController.scan
+);
+
+router.get(
+  "/history",
+  authenticate,
+  authorizeRoles("NhanVienCheckIn", "ToChuc"),
+  checkinController.getHistory
 );
 
 module.exports = router;

@@ -61,13 +61,9 @@ export async function apiFetch(
     }
   );
 
-  let data = null;
-
-  try {
-    data = await response.json();
-  } catch {
-    data = null;
-  }
+  const data = await response
+    .json()
+    .catch(() => null);
 
   if (!response.ok) {
     // Token hết hạn hoặc token không hợp lệ.
@@ -93,6 +89,8 @@ export async function apiFetch(
       data?.errors ||
       data?.error?.details ||
       null;
+
+    error.data = data?.data || null;
 
     throw error;
   }

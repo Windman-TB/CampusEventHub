@@ -35,6 +35,7 @@ export function BottomNav({
     showCheckin !== undefined
       ? Boolean(showCheckin)
       : getStoredRole() === "NhanVienCheckIn";
+  const isStudent = getStoredRole() === "SinhVien";
 
   const activeCls = dark
     ? "text-indigo-400"
@@ -85,20 +86,22 @@ export function BottomNav({
           </span>
         </NavLink>
 
-        <NavLink
-          to="/tickets"
-          className={({ isActive }) =>
-            cls(isActive)
-          }
-        >
-          <Ticket
-            size={22}
-            strokeWidth={2.5}
-          />
-          <span className="text-[10px] font-semibold">
-            Vé của tôi
-          </span>
-        </NavLink>
+        {isStudent && (
+          <NavLink
+            to="/tickets"
+            className={({ isActive }) =>
+              cls(isActive)
+            }
+          >
+            <Ticket
+              size={22}
+              strokeWidth={2.5}
+            />
+            <span className="text-[10px] font-semibold">
+              Vé của tôi
+            </span>
+          </NavLink>
+        )}
 
         {isStaff && (
           <NavLink

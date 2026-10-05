@@ -111,8 +111,8 @@ app.use("/api/tickets", ticketRoutes);
 // Dashboard (Thống kê)
 app.use("/api", dashboardRoutes);
 
-// Check-in (Điểm danh)
-app.use("/api", checkinRoutes);
+// Check-in Engine (Gói 5)
+app.use("/api/check-in", checkinRoutes);
 
 // ==============================
 // Error Handling
