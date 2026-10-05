@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, Calendar, MapPin, Ticket, QrCode, User, Bell, X, Check, CalendarDays, RefreshCw, Clock, Home } from 'lucide-react';
-import { TOPIC_LABELS, TOPIC_COLORS } from '../mocks/mockData';
+import { TOPIC_LABELS, TOPIC_COLORS } from '../utils/constants';
 import { getPublicEvents, getNotifications } from '../services/eventService';
 import { BottomNav } from '../layouts/MainLayout';
 
