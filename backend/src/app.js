@@ -15,6 +15,8 @@ const profileRoutes = require("./routes/profile.routes");
 const participantRoutes = require("./routes/participants.routes.js");
 const staffRoutes = require("./routes/staff.routes.js");
 const ticketRoutes = require("./routes/ticket.routes.js");
+const dashboardRoutes = require("./routes/dashboard.routes.js");
+const checkinRoutes = require("./routes/checkin.routes.js");
 
 // ==============================
 // Error handlers
@@ -104,6 +106,12 @@ app.use("/api", staffRoutes);
 
 // Ticket Booking (Gói 4)
 app.use("/api/tickets", ticketRoutes);
+
+// Dashboard (Thống kê)
+app.use("/api", dashboardRoutes);
+
+// Check-in (Điểm danh)
+app.use("/api", checkinRoutes);
 
 // ==============================
 // Error Handling
