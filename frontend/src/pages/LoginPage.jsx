@@ -1,122 +1,291 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { setStoredRole } from "../layouts/MainLayout";
+
+import {
+  setStoredRole,
+  clearAuthSession,
+} from "../utils/authStorage";
+
 import { apiFetch } from "../services/api";
 
-const DEMO_ACCOUNTS = [
-  {
-    role: "student",
-    label: "Sinh viên",
-    bg: "#eef2ff",
-    color: "#4f46e5",
-    desc: "Khám phá và đăng ký sự kiện",
-    path: "/home",
-  },
-  {
-    role: "organizer",
-    label: "Ban tổ chức",
-    bg: "#ecfeff",
-    color: "#0891b2",
-    desc: "Quản lý sự kiện và báo cáo",
-    path: "/dashboard",
-  },
-  {
-    role: "staff",
-    label: "Sinh viên (CTV điểm danh)",
-    bg: "#ecfdf5",
-    color: "#059669",
-    desc: "Đã được cấp quyền điểm danh",
-    badge: "Có quyền điểm danh",
-    path: "/check-in",
-  },
-];
-
 export default function LoginPage() {
-  const [tab, setTab] = useState("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!email || !password) return alert("Vui lòng nhập email và mật khẩu");
+  // ==============================
+  // Common state
+  // ==============================
+  const [tab, setTab] = useState("login");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-    setLoading(true);
+  // ==============================
+  // Login state
+  // ==============================
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
+
+  // ==============================
+  // Register state
+  // ==============================
+  const [registerForm, setRegisterForm] = useState({
+    ho_ten: "",
+    mssv: "",
+    sdt: "",
+    email: "",
+    khoa: "Công nghệ Thông tin",
+    mat_khau: "",
+    xac_nhan_mat_khau: "",
+  });
+
+  // ==============================
+  // Change tab
+  // ==============================
+  function handleChangeTab(nextTab) {
+    setTab(nextTab);
+    setError("");
+    setSuccess("");
+  }
+
+  // ==============================
+  // LOGIN
+  // ==============================
+  async function handleLogin(e) {
+    e.preventDefault();
+
+    setError("");
+    setSuccess("");
+
+    if (!identifier.trim() || !password) {
+      setError("Vui lòng nhập Email/MSSV và mật khẩu.");
+      return;
+    }
+
     try {
-      const res = await apiFetch("/api/auth/login", {
+      setLoading(true);
+
+      const result = await apiFetch("/api/auth/login", {
         method: "POST",
-        body: JSON.stringify({ identifier: email, mat_khau: password }),
+        body: JSON.stringify({
+          identifier: identifier.trim(),
+          mat_khau: password,
+        }),
       });
 
-      if (res.data?.accessToken) {
-        sessionStorage.setItem("token", res.data.accessToken);
-        localStorage.setItem("token", res.data.accessToken);
-        if (res.data.user) {
-          localStorage.setItem("user", JSON.stringify(res.data.user));
-        }
+      const accessToken = result?.data?.accessToken;
+      const user = result?.data?.user;
 
-        const role = res.data.user?.loai_tai_khoan;
-        if (role === "ToChuc") {
-          setStoredRole("organizer");
-          navigate("/dashboard");
-        } else if (role === "NhanVienCheckIn") {
-          setStoredRole("staff");
-          navigate("/check-in");
-        } else {
-          setStoredRole("student");
-          navigate("/home");
-        }
+      if (!accessToken || !user) {
+        throw new Error(
+          "Phản hồi đăng nhập từ server không hợp lệ."
+        );
+      }
+
+      const validRoles = [
+        "SinhVien",
+        "ToChuc",
+        "NhanVienCheckIn",
+      ];
+
+      if (!validRoles.includes(user.loai_tai_khoan)) {
+        clearAuthSession();
+
+        throw new Error(
+          "Loại tài khoản không hợp lệ."
+        );
+      }
+
+      // Lưu phiên đăng nhập
+      localStorage.setItem(
+        "accessToken",
+        accessToken
+      );
+
+      localStorage.setItem(
+        "user",
+        JSON.stringify(user)
+      );
+
+      setStoredRole(
+        user.loai_tai_khoan
+      );
+
+      // Điều hướng theo role backend
+      switch (user.loai_tai_khoan) {
+        case "ToChuc":
+          navigate("/dashboard", {
+            replace: true,
+          });
+          break;
+
+        case "NhanVienCheckIn":
+          navigate("/check-in", {
+            replace: true,
+          });
+          break;
+
+        case "SinhVien":
+        default:
+          navigate("/home", {
+            replace: true,
+          });
+          break;
       }
     } catch (err) {
-      alert(err.message || "Đăng nhập thất bại");
+      clearAuthSession();
+
+      setError(
+        err?.message ||
+          "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin."
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleDemoLogin(acc) {
-    setLoading(true);
+  // ==============================
+  // REGISTER
+  // ==============================
+  async function handleRegister(e) {
+    e.preventDefault();
+
+    setError("");
+    setSuccess("");
+
+    const {
+      ho_ten,
+      mssv,
+      sdt,
+      email,
+      khoa,
+      mat_khau,
+      xac_nhan_mat_khau,
+    } = registerForm;
+
+    if (
+      !ho_ten.trim() ||
+      !mssv.trim() ||
+      !email.trim() ||
+      !mat_khau ||
+      !xac_nhan_mat_khau
+    ) {
+      setError(
+        "Vui lòng nhập đầy đủ các thông tin bắt buộc."
+      );
+      return;
+    }
+
+    if (mat_khau.length < 8) {
+      setError(
+        "Mật khẩu phải có ít nhất 8 ký tự."
+      );
+      return;
+    }
+
+    if (mat_khau !== xac_nhan_mat_khau) {
+      setError(
+        "Mật khẩu xác nhận không khớp."
+      );
+      return;
+    }
+
     try {
-      const res = await apiFetch("/api/auth/demo-login", {
+      setLoading(true);
+
+      await apiFetch("/api/auth/register", {
         method: "POST",
-        body: JSON.stringify({ role: acc.role }),
+        body: JSON.stringify({
+          ho_ten: ho_ten.trim(),
+          mssv: mssv.trim(),
+          email: email
+            .trim()
+            .toLowerCase(),
+          sdt: sdt.trim() || undefined,
+          khoa,
+          mat_khau,
+        }),
       });
 
-      if (res.data?.accessToken) {
-        sessionStorage.setItem("token", res.data.accessToken);
-        localStorage.setItem("token", res.data.accessToken);
-        if (res.data.user) {
-          localStorage.setItem("user", JSON.stringify(res.data.user));
-        }
-      }
-      setStoredRole(acc.role);
-      navigate(acc.path);
+      setSuccess(
+        "Đăng ký tài khoản thành công. Bạn có thể đăng nhập ngay."
+      );
+
+      // Chuyển sang tab Login
+      setTab("login");
+
+      // Điền sẵn email vừa đăng ký
+      setIdentifier(
+        email.trim().toLowerCase()
+      );
+
+      setPassword("");
+
+      // Reset form đăng ký
+      setRegisterForm({
+        ho_ten: "",
+        mssv: "",
+        sdt: "",
+        email: "",
+        khoa: "Công nghệ Thông tin",
+        mat_khau: "",
+        xac_nhan_mat_khau: "",
+      });
     } catch (err) {
-      console.error("Demo login error:", err);
-      setStoredRole(acc.role);
-      navigate(acc.path);
+      setError(
+        err?.message ||
+          "Đăng ký tài khoản thất bại. Vui lòng thử lại."
+      );
     } finally {
       setLoading(false);
     }
+  }
+
+  // ==============================
+  // Update register form
+  // ==============================
+  function updateRegisterField(
+    field,
+    value
+  ) {
+    setRegisterForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
   }
 
   return (
-    <div className="min-h-screen flex" style={{ background: "#f8fafc" }}>
-      {/* Left branding panel — desktop only */}
+    <div
+      className="min-h-screen flex"
+      style={{
+        background: "#f8fafc",
+      }}
+    >
+      {/* ==================================================
+          LEFT BRANDING PANEL
+      ================================================== */}
       <div
         className="hidden lg:flex flex-col justify-between p-12 xl:p-16 relative overflow-hidden"
-        style={{ width: "52%", background: "#1a1a2e" }}
+        style={{
+          width: "52%",
+          background: "#1a1a2e",
+        }}
       >
         {/* Background decoration */}
         <div className="absolute inset-0 overflow-hidden">
           <div
             className="absolute -top-32 -left-32 w-96 h-96 rounded-full opacity-10"
-            style={{ background: "#4f46e5", filter: "blur(80px)" }}
+            style={{
+              background: "#4f46e5",
+              filter: "blur(80px)",
+            }}
           />
+
           <div
             className="absolute -bottom-32 -right-32 w-80 h-80 rounded-full opacity-10"
-            style={{ background: "#0891b2", filter: "blur(80px)" }}
+            style={{
+              background: "#0891b2",
+              filter: "blur(80px)",
+            }}
           />
         </div>
 
@@ -124,14 +293,18 @@ export default function LoginPage() {
         <div className="relative flex items-center gap-3">
           <div
             className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm tracking-tight"
-            style={{ background: "#4f46e5" }}
+            style={{
+              background: "#4f46e5",
+            }}
           >
             CEH
           </div>
+
           <div>
             <div className="text-white font-bold text-lg leading-none">
               Campus Event Hub
             </div>
+
             <div className="text-slate-400 text-xs mt-0.5">
               Nền tảng sự kiện sinh viên
             </div>
@@ -143,8 +316,10 @@ export default function LoginPage() {
           <div
             className="rounded-2xl overflow-hidden mb-8"
             style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              background:
+                "rgba(255,255,255,0.05)",
+              border:
+                "1px solid rgba(255,255,255,0.08)",
             }}
           >
             <img
@@ -152,7 +327,13 @@ export default function LoginPage() {
               alt="Sinh viên tham gia sự kiện"
               className="w-full h-48 object-cover opacity-70"
             />
-            <div className="px-4 py-3 text-xs" style={{ color: "#94a3b8" }}>
+
+            <div
+              className="px-4 py-3 text-xs"
+              style={{
+                color: "#94a3b8",
+              }}
+            >
               Sinh viên Đại học Công nghệ Thông tin
             </div>
           </div>
@@ -160,19 +341,34 @@ export default function LoginPage() {
           <div>
             <h1
               className="text-white font-bold leading-tight mb-4"
-              style={{ fontSize: "clamp(1.8rem, 3vw, 2.5rem)" }}
+              style={{
+                fontSize:
+                  "clamp(1.8rem, 3vw, 2.5rem)",
+              }}
             >
               Kết nối sinh viên
               <br />
-              <span style={{ color: "#818cf8" }}>Khám phá sự kiện</span>
+
+              <span
+                style={{
+                  color: "#818cf8",
+                }}
+              >
+                Khám phá sự kiện
+              </span>
+
               <br />
               Tạo dấu ấn
             </h1>
+
             <p
               className="text-slate-400 leading-relaxed"
-              style={{ fontSize: "0.9rem" }}
+              style={{
+                fontSize: "0.9rem",
+              }}
             >
-              Đăng ký sự kiện, nhận vé QR và điểm danh — tất cả trên một nền
+              Đăng ký sự kiện, nhận vé QR và
+              điểm danh — tất cả trên một nền
               tảng duy nhất dành cho sinh viên.
             </p>
           </div>
@@ -183,99 +379,205 @@ export default function LoginPage() {
               ["1.284", "Lượt đăng ký"],
               ["12", "Sự kiện đang mở"],
               ["73,4%", "Tỷ lệ điểm danh"],
-            ].map(([v, l]) => (
+            ].map(([value, label]) => (
               <div
-                key={l}
+                key={label}
                 className="rounded-xl p-3"
                 style={{
-                  background: "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  background:
+                    "rgba(255,255,255,0.06)",
+                  border:
+                    "1px solid rgba(255,255,255,0.08)",
                 }}
               >
-                <div className="text-white font-bold text-xl">{v}</div>
-                <div className="text-xs mt-0.5" style={{ color: "#64748b" }}>
-                  {l}
+                <div className="text-white font-bold text-xl">
+                  {value}
+                </div>
+
+                <div
+                  className="text-xs mt-0.5"
+                  style={{
+                    color: "#64748b",
+                  }}
+                >
+                  {label}
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <p className="relative text-xs" style={{ color: "#334155" }}>
-          © 2026 Campus Event Hub · Đại học Công nghệ Thông tin
+        <p
+          className="relative text-xs"
+          style={{
+            color: "#334155",
+          }}
+        >
+          © 2026 Campus Event Hub · Đại học
+          Công nghệ Thông tin
         </p>
       </div>
 
-      {/* Right form panel */}
+      {/* ==================================================
+          RIGHT FORM PANEL
+      ================================================== */}
       <div className="flex-1 flex items-center justify-center p-6 lg:p-12 overflow-y-auto">
-        <div className="w-full" style={{ maxWidth: 440 }}>
+        <div
+          className="w-full"
+          style={{
+            maxWidth: 440,
+          }}
+        >
           {/* Mobile logo */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-xs"
-              style={{ background: "#4f46e5" }}
+              style={{
+                background: "#4f46e5",
+              }}
             >
               CEH
             </div>
+
             <div>
-              <div className="font-bold" style={{ color: "#1a1a2e" }}>
+              <div
+                className="font-bold"
+                style={{
+                  color: "#1a1a2e",
+                }}
+              >
                 Campus Event Hub
               </div>
-              <div className="text-xs" style={{ color: "#94a3b8" }}>
+
+              <div
+                className="text-xs"
+                style={{
+                  color: "#94a3b8",
+                }}
+              >
                 Nền tảng sự kiện sinh viên
               </div>
             </div>
           </div>
 
-          {/* Auth card */}
+          {/* ==================================================
+              AUTH CARD
+          ================================================== */}
           <div
             className="bg-white rounded-2xl shadow-sm border p-8"
-            style={{ borderColor: "#e2e8f0" }}
+            style={{
+              borderColor: "#e2e8f0",
+            }}
           >
             {/* Tabs */}
             <div
               className="flex gap-1 p-1 rounded-xl mb-6"
-              style={{ background: "#f8fafc" }}
+              style={{
+                background: "#f8fafc",
+              }}
             >
-              {["login", "register"].map((t) => (
+              {[
+                "login",
+                "register",
+              ].map((currentTab) => (
                 <button
-                  key={t}
+                  key={currentTab}
                   type="button"
-                  onClick={() => setTab(t)}
+                  onClick={() =>
+                    handleChangeTab(
+                      currentTab
+                    )
+                  }
                   className="flex-1 py-2 rounded-lg text-sm font-semibold transition-all"
                   style={{
-                    background: tab === t ? "white" : "transparent",
-                    color: tab === t ? "#1a1a2e" : "#94a3b8",
+                    background:
+                      tab === currentTab
+                        ? "white"
+                        : "transparent",
+
+                    color:
+                      tab === currentTab
+                        ? "#1a1a2e"
+                        : "#94a3b8",
+
                     boxShadow:
-                      tab === t ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
+                      tab === currentTab
+                        ? "0 1px 4px rgba(0,0,0,0.08)"
+                        : "none",
                   }}
                 >
-                  {t === "login" ? "Đăng nhập" : "Đăng ký"}
+                  {currentTab === "login"
+                    ? "Đăng nhập"
+                    : "Đăng ký"}
                 </button>
               ))}
             </div>
 
+            {/* Error */}
+            {error && (
+              <div
+                className="mb-4 px-4 py-3 rounded-xl text-sm border"
+                style={{
+                  background: "#fef2f2",
+                  borderColor: "#fecaca",
+                  color: "#dc2626",
+                }}
+              >
+                {error}
+              </div>
+            )}
+
+            {/* Success */}
+            {success && (
+              <div
+                className="mb-4 px-4 py-3 rounded-xl text-sm border"
+                style={{
+                  background: "#f0fdf4",
+                  borderColor: "#bbf7d0",
+                  color: "#15803d",
+                }}
+              >
+                {success}
+              </div>
+            )}
+
+            {/* ==================================================
+                LOGIN TAB
+            ================================================== */}
             {tab === "login" ? (
               <>
                 <h2 className="font-bold text-xl mb-1 text-slate-900">
                   Chào mừng trở lại
                 </h2>
-                <p className="text-sm mb-6 text-slate-400">Đăng nhập để tiếp tục</p>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <p className="text-sm mb-6 text-slate-400">
+                  Đăng nhập để tiếp tục
+                </p>
+
+                <form
+                  onSubmit={handleLogin}
+                  className="space-y-4"
+                >
                   <FormField
                     label="Email hoặc MSSV"
                     type="text"
                     placeholder="email@uit.edu.vn hoặc 2252xxxx"
-                    value={email}
-                    onChange={setEmail}
+                    value={identifier}
+                    onChange={
+                      setIdentifier
+                    }
+                    disabled={loading}
+                    required
                   />
+
                   <FormField
                     label="Mật khẩu"
                     type="password"
                     placeholder="••••••••"
                     value={password}
                     onChange={setPassword}
+                    disabled={loading}
+                    required
                   />
 
                   <div className="flex items-center justify-between">
@@ -284,13 +586,20 @@ export default function LoginPage() {
                         type="checkbox"
                         className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
                       />
+
                       <span className="text-sm text-slate-600">
                         Ghi nhớ đăng nhập
                       </span>
                     </label>
+
                     <button
                       type="button"
-                      className="text-sm font-medium text-indigo-600"
+                      onClick={() =>
+                        navigate(
+                          "/forgot-password"
+                        )
+                      }
+                      className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
                     >
                       Quên mật khẩu?
                     </button>
@@ -299,116 +608,185 @@ export default function LoginPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-3 flex items-center justify-center rounded-xl font-semibold text-white transition-all bg-indigo-600 hover:bg-indigo-700 disabled:opacity-70"
+                    className="w-full py-3 flex items-center justify-center rounded-xl font-semibold text-white transition-all bg-indigo-600 hover:bg-indigo-700 disabled:opacity-70 disabled:cursor-not-allowed"
                   >
-                    {loading ? "Đang xử lý..." : "Đăng nhập"}
+                    {loading
+                      ? "Đang đăng nhập..."
+                      : "Đăng nhập"}
                   </button>
                 </form>
               </>
             ) : (
               <>
+                {/* ==================================================
+                    REGISTER TAB
+                ================================================== */}
+
                 <h2 className="font-bold text-xl mb-1 text-slate-900">
                   Tạo tài khoản mới
                 </h2>
+
                 <p className="text-sm mb-5 text-slate-400">
-                  Điền thông tin sinh viên của bạn
+                  Điền thông tin sinh viên của
+                  bạn
                 </p>
 
-                <form onSubmit={handleSubmit} className="space-y-3">
-                  <FormField label="Họ và tên" placeholder="Nguyễn Văn A" />
+                <form
+                  onSubmit={handleRegister}
+                  className="space-y-3"
+                >
+                  <FormField
+                    label="Họ và tên"
+                    placeholder="Nguyễn Văn A"
+                    value={
+                      registerForm.ho_ten
+                    }
+                    onChange={(value) =>
+                      updateRegisterField(
+                        "ho_ten",
+                        value
+                      )
+                    }
+                    disabled={loading}
+                    required
+                  />
+
                   <div className="grid grid-cols-2 gap-3">
-                    <FormField label="MSSV" placeholder="2252xxxx" />
-                    <FormField label="Số điện thoại" placeholder="09xx xxx xxx" />
+                    <FormField
+                      label="MSSV"
+                      placeholder="2252xxxx"
+                      value={
+                        registerForm.mssv
+                      }
+                      onChange={(value) =>
+                        updateRegisterField(
+                          "mssv",
+                          value
+                        )
+                      }
+                      disabled={loading}
+                      required
+                    />
+
+                    <FormField
+                      label="Số điện thoại"
+                      placeholder="09xx xxx xxx"
+                      value={
+                        registerForm.sdt
+                      }
+                      onChange={(value) =>
+                        updateRegisterField(
+                          "sdt",
+                          value
+                        )
+                      }
+                      disabled={loading}
+                    />
                   </div>
+
                   <FormField
                     label="Email sinh viên"
                     type="email"
                     placeholder="mssv@gm.uit.edu.vn"
+                    value={
+                      registerForm.email
+                    }
+                    onChange={(value) =>
+                      updateRegisterField(
+                        "email",
+                        value
+                      )
+                    }
+                    disabled={loading}
+                    required
                   />
+
                   <div>
                     <label className="block text-sm font-medium mb-1.5 text-slate-600">
                       Khoa / Viện
                     </label>
+
                     <select
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none transition-all focus:border-indigo-600"
+                      value={
+                        registerForm.khoa
+                      }
+                      onChange={(e) =>
+                        updateRegisterField(
+                          "khoa",
+                          e.target.value
+                        )
+                      }
+                      disabled={loading}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none transition-all focus:border-indigo-600 disabled:bg-slate-100"
                     >
-                      <option>Công nghệ Thông tin</option>
-                      <option>Khoa học Máy tính</option>
-                      <option>Hệ thống Thông tin</option>
-                      <option>An toàn Thông tin</option>
-                      <option>Mạng máy tính & TT</option>
+                      <option value="Công nghệ Thông tin">
+                        Công nghệ Thông tin
+                      </option>
+
+                      <option value="Khoa học Máy tính">
+                        Khoa học Máy tính
+                      </option>
+
+                      <option value="Hệ thống Thông tin">
+                        Hệ thống Thông tin
+                      </option>
+
+                      <option value="An toàn Thông tin">
+                        An toàn Thông tin
+                      </option>
+
+                      <option value="Mạng máy tính & TT">
+                        Mạng máy tính & TT
+                      </option>
                     </select>
                   </div>
+
                   <FormField
                     label="Mật khẩu"
                     type="password"
-                    placeholder="Tối thiểu 6 ký tự"
+                    placeholder="Tối thiểu 8 ký tự"
+                    value={
+                      registerForm.mat_khau
+                    }
+                    onChange={(value) =>
+                      updateRegisterField(
+                        "mat_khau",
+                        value
+                      )
+                    }
+                    disabled={loading}
+                    required
                   />
+
                   <FormField
                     label="Xác nhận mật khẩu"
                     type="password"
                     placeholder="Nhập lại mật khẩu"
+                    value={
+                      registerForm.xac_nhan_mat_khau
+                    }
+                    onChange={(value) =>
+                      updateRegisterField(
+                        "xac_nhan_mat_khau",
+                        value
+                      )
+                    }
+                    disabled={loading}
+                    required
                   />
 
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full mt-5 py-3 flex items-center justify-center rounded-xl font-semibold text-white transition-all bg-indigo-600 hover:bg-indigo-700 disabled:opacity-70"
+                    className="w-full mt-5 py-3 flex items-center justify-center rounded-xl font-semibold text-white transition-all bg-indigo-600 hover:bg-indigo-700 disabled:opacity-70 disabled:cursor-not-allowed"
                   >
-                    {loading ? "Đang xử lý..." : "Đăng ký tài khoản"}
+                    {loading
+                      ? "Đang đăng ký..."
+                      : "Đăng ký tài khoản"}
                   </button>
                 </form>
               </>
             )}
-          </div>
-
-          {/* Demo accounts */}
-          <div className="mt-5">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="flex-1 border-t border-slate-200" />
-              <span className="text-xs font-medium text-slate-400">
-                Đăng nhập nhanh bằng Demo
-              </span>
-              <div className="flex-1 border-t border-slate-200" />
-            </div>
-            
-            <div className="space-y-2">
-              {DEMO_ACCOUNTS.map((acc, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleDemoLogin(acc)}
-                  disabled={loading}
-                  className="w-full flex items-start gap-3 px-4 py-3 rounded-xl border border-slate-200 text-left transition-all hover:shadow-sm bg-white"
-                >
-                  <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
-                    style={{ background: acc.bg }}
-                  >
-                    <span className="text-xs font-bold" style={{ color: acc.color }}>
-                      {acc.role === "organizer" ? "BTC" : "SV"}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-semibold text-slate-900">
-                        {acc.label}
-                      </span>
-                      {acc.badge && (
-                        <span
-                          className="px-1.5 py-0.5 rounded-full text-[10px] font-medium"
-                          style={{ background: acc.bg, color: acc.color }}
-                        >
-                          {acc.badge}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs mt-0.5 text-slate-400">
-                      {acc.desc}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
           </div>
         </div>
       </div>
@@ -416,18 +794,35 @@ export default function LoginPage() {
   );
 }
 
-function FormField({ label, type = "text", placeholder, value, onChange }) {
+// ==================================================
+// Reusable Form Field
+// ==================================================
+
+function FormField({
+  label,
+  type = "text",
+  placeholder,
+  value,
+  onChange,
+  disabled = false,
+  required = false,
+}) {
   return (
     <div>
       <label className="block text-sm font-medium mb-1.5 text-slate-600">
         {label}
       </label>
+
       <input
         type={type}
         placeholder={placeholder}
         value={value}
-        onChange={(e) => onChange?.(e.target.value)}
-        className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none transition-all focus:border-indigo-600"
+        onChange={(e) =>
+          onChange?.(e.target.value)
+        }
+        disabled={disabled}
+        required={required}
+        className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none transition-all focus:border-indigo-600 disabled:bg-slate-100 disabled:cursor-not-allowed"
       />
     </div>
   );

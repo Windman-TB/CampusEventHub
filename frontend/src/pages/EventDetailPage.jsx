@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Calendar, MapPin, Users, Check } from 'lucide-react';
-import { getEventStatusLabel, TOPIC_LABELS, TOPIC_COLORS } from '../mocks/mockData';
+import { getEventStatusLabel, TOPIC_LABELS, TOPIC_COLORS } from '../utils/constants';
 import { getEventById } from '../services/eventService';
 
 // Tạo mã vé ngẫu nhiên dạng TKT-YYYY-XXXXXX
@@ -60,12 +60,14 @@ export default function EventDetailPage() {
   const dayName = dateObj.toLocaleDateString('vi-VN', { weekday: 'long' });
   const dateStr = dateObj.toLocaleDateString('vi-VN');
   
-  // Dữ liệu Mock User Info cho mục Form "Thông tin đăng ký"
+  const storedUser = localStorage.getItem('user');
+  const user = storedUser ? JSON.parse(storedUser) : {};
+  
   const studentInfo = {
-    mssv: '22521001',
-    name: 'Cao Duy Anh',
-    email: 'caoduyanh@uit.edu.vn',
-    faculty: 'Công nghệ Thông tin'
+    mssv: user.mssv || 'Chưa cập nhật',
+    name: user.ho_ten || user.name || 'Chưa cập nhật',
+    email: user.email || 'Chưa cập nhật',
+    faculty: user.khoa || 'Công nghệ Thông tin'
   };
 
   return (
@@ -243,13 +245,7 @@ export default function EventDetailPage() {
               setRegistering(false);
               setRegistered(true);
               navigate('/ticket-confirm', {
-                state: {
-                  ticketId: generateTicketId(),
-                  eventId: event.ma_su_kien,
-                  studentName: studentInfo.name,
-                  studentId: studentInfo.mssv,
-                  faculty: studentInfo.faculty,
-                },
+                state: { event: { id: event.ma_su_kien, title: event.ten_su_kien } }
               });
             }, 1000);
           }}

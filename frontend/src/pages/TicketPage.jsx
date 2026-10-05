@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import MainLayout from '../layouts/MainLayout';
 import { QRCodeSVG } from 'qrcode.react';
+import { apiFetch } from '../services/api';
 
 export default function TicketPage() {
   const [tab, setTab] = useState('upcoming');
@@ -15,12 +16,7 @@ export default function TicketPage() {
 
   const fetchTickets = async () => {
     try {
-      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      const res = await fetch(`${apiUrl}/api/tickets/my-tickets`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
+      const data = await apiFetch('/api/tickets/my-tickets');
       if (data.success) {
         setTickets(data.data);
       }
@@ -37,16 +33,9 @@ export default function TicketPage() {
     
     setCancelingId(ticketId);
     try {
-      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      const res = await fetch(`${apiUrl}/api/tickets/${ticketId}/cancel`, {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+      const data = await apiFetch(`/api/tickets/${ticketId}/cancel`, {
+        method: 'POST'
       });
-      const data = await res.json();
       if (data.success) {
         alert('Hủy vé thành công!');
         fetchTickets(); // Load lại danh sách vé
