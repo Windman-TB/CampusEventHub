@@ -180,3 +180,12 @@ export async function deleteEvent(id) {
     }
   );
 }
+// POST /api/events/upload-banner
+export async function uploadEventBanner(payload) {
+  return apiFetch("/api/events/upload-banner", {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+

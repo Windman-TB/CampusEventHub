@@ -1,11 +1,13 @@
 const supabasePkg = require('../config/supabase.js');
 const supabase = supabasePkg.supabase || supabasePkg;
+const { processEventWithStatus } = require('../utils/eventStatus.js');
 
-// 1. Lấy danh mục chuyên đề
+// 1. Lấy danh mục chuyên đề (chưa bị xóa)
 const getCategoriesService = async () => {
   const { data, error } = await supabase
     .from('chuyen_de')
     .select('*')
+    .eq('da_xoa', false)
     .order('ten_chuyen_de', { ascending: true });
 
   if (error) throw error;
@@ -26,10 +28,13 @@ const getOrganizerEventsService = async (maTaiKhoanToChuc) => {
 
   if (error) throw error;
 
-  return data.map((item) => ({
-    ...item,
-    so_ve_da_dat: item.dang_ky?.[0]?.count || 0,
-  }));
+  return data.map((item) => {
+    const computed = processEventWithStatus(item);
+    return {
+      ...computed,
+      so_ve_da_dat: item.dang_ky?.[0]?.count || 0,
+    };
+  });
 };
 
 // 0. Lấy danh sách sự kiện public (Gói 3)
@@ -51,9 +56,6 @@ const getPublicEventsService = async ({ keyword, ma_chuyen_de, trang_thai_su_kie
   if (ma_chuyen_de) {
     query = query.eq('ma_chuyen_de', ma_chuyen_de);
   }
-  if (trang_thai_su_kien) {
-    query = query.eq('trang_thai_su_kien', trang_thai_su_kien);
-  }
   if (ngay_dien_ra) {
     query = query.eq('ngay_dien_ra', ngay_dien_ra);
   }
@@ -65,15 +67,20 @@ const getPublicEventsService = async ({ keyword, ma_chuyen_de, trang_thai_su_kie
   if (error) throw error;
 
   let formattedData = data.map(item => {
+    const computed = processEventWithStatus(item);
     const so_ve_da_dat = item.dang_ky?.[0]?.count || 0; 
     const so_ve_con_lai = item.so_luong_toi_da - so_ve_da_dat;
     return {
-      ...item,
+      ...computed,
       so_ve_da_dat,
       so_ve_con_lai,
       dang_ky: undefined
     };
   });
+
+  if (trang_thai_su_kien) {
+    formattedData = formattedData.filter(e => e.trang_thai_su_kien === trang_thai_su_kien);
+  }
 
   if (ticketStatus === 'Còn chỗ') {
     formattedData = formattedData.filter(e => e.so_ve_con_lai > 0);
@@ -105,13 +112,15 @@ const getEventByIdService = async (id, maTaiKhoan) => {
 
   if (error) throw error;
 
-  const so_ve_da_dat = data.dang_ky?.[0]?.count || 0;
-  const so_ve_con_lai = data.so_luong_toi_da - so_ve_da_dat;
-  data.so_ve_da_dat = so_ve_da_dat;
-  data.so_ve_con_lai = so_ve_con_lai;
-  data.to_chuc = data.tai_khoan?.ho_ten;
-  delete data.dang_ky;
-  delete data.tai_khoan;
+  const computedData = processEventWithStatus(data);
+
+  const so_ve_da_dat = computedData.dang_ky?.[0]?.count || 0;
+  const so_ve_con_lai = computedData.so_luong_toi_da - so_ve_da_dat;
+  computedData.so_ve_da_dat = so_ve_da_dat;
+  computedData.so_ve_con_lai = so_ve_con_lai;
+  computedData.to_chuc = computedData.tai_khoan?.ho_ten;
+  delete computedData.dang_ky;
+  delete computedData.tai_khoan;
 
   let hasRegistered = false;
   if (maTaiKhoan) {
@@ -124,16 +133,18 @@ const getEventByIdService = async (id, maTaiKhoan) => {
       .eq('da_xoa', false);
     hasRegistered = count > 0;
   }
-  data.hasRegistered = hasRegistered;
+  computedData.hasRegistered = hasRegistered;
 
-  return data;
+  return computedData;
 };
 
 // 3. Tạo sự kiện mới
 const createEventService = async (eventData, maTaiKhoanToChuc) => {
   const payload = {
     ...eventData,
-    anh_bia: eventData.anh_bia || 'https://placehold.co/1200x630/png?text=Campus+Event',
+    anh_bia: (eventData.anh_bia && String(eventData.anh_bia).trim())
+      ? String(eventData.anh_bia).trim()
+      : 'https://placehold.co/1200x630/png?text=Campus+Event',
     ma_tai_khoan_to_chuc: maTaiKhoanToChuc,
   };
 
@@ -161,9 +172,14 @@ const updateEventService = async (id, updateData, maTaiKhoanToChuc) => {
     throw new Error(`Không thể giảm sức chứa xuống dưới số vé đã đăng ký (${registeredCount} vé)`);
   }
 
+  const payloadData = { ...updateData };
+  if (payloadData.anh_bia !== undefined && (!payloadData.anh_bia || !String(payloadData.anh_bia).trim())) {
+    payloadData.anh_bia = 'https://placehold.co/1200x630/png?text=Campus+Event';
+  }
+
   const { data, error } = await supabase
     .from('su_kien')
-    .update(updateData)
+    .update(payloadData)
     .eq('ma_su_kien', id)
     .eq('ma_tai_khoan_to_chuc', maTaiKhoanToChuc)
     .select()
@@ -171,6 +187,55 @@ const updateEventService = async (id, updateData, maTaiKhoanToChuc) => {
 
   if (error) throw error;
   return data;
+};
+
+// Hàm upload ảnh bìa vào Supabase Storage bucket event-banners
+const uploadEventBannerService = async (fileData, fileName = 'banner.png', mimeType = 'image/png') => {
+  const bucketName = 'event-banners';
+  const fileExt = fileName.includes('.') ? fileName.split('.').pop() : 'png';
+  const filePath = `banner-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+
+  try {
+    let buffer;
+    if (typeof fileData === 'string' && fileData.startsWith('data:')) {
+      const base64Content = fileData.split(';base64,').pop();
+      buffer = Buffer.from(base64Content, 'base64');
+    } else if (Buffer.isBuffer(fileData)) {
+      buffer = fileData;
+    } else {
+      buffer = Buffer.from(fileData, 'base64');
+    }
+
+    if (supabase.storage) {
+      // Đảm bảo bucket tồn tại hoặc thử upload
+      const { data, error } = await supabase.storage
+        .from(bucketName)
+        .upload(filePath, buffer, {
+          contentType: mimeType || 'image/png',
+          upsert: true,
+        });
+
+      if (!error && data) {
+        const { data: publicUrlData } = supabase.storage
+          .from(bucketName)
+          .getPublicUrl(filePath);
+
+        if (publicUrlData?.publicUrl) {
+          return publicUrlData.publicUrl;
+        }
+      } else if (error) {
+        console.warn('Supabase storage upload error:', error.message);
+      }
+    }
+  } catch (err) {
+    console.warn('Supabase storage exception:', err.message);
+  }
+
+  // Fallback: nếu storage chưa khởi tạo bucket hoặc có lỗi, giữ lại data URL/base64 hoặc fallback URL
+  if (typeof fileData === 'string' && fileData.startsWith('data:image')) {
+    return fileData;
+  }
+  return 'https://placehold.co/1200x630/png?text=Campus+Event';
 };
 
 // 5. Xóa mềm sự kiện
@@ -275,6 +340,7 @@ module.exports = {
   getEventByIdService,
   createEventService,
   updateEventService,
+  uploadEventBannerService,
   deleteEventService,
   getNotificationsService,
 };
