@@ -1,186 +1,291 @@
-import { useEffect, useState } from "react";
+import { Html5Qrcode } from "html5-qrcode";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { BottomNav } from "../layouts/MainLayout";
+import {
+  fetchAssignedEvents,
+  fetchCheckInHistory,
+  scanTicket,
+} from "../services/checkin.api";
 import { clearAuthSession } from "../utils/authStorage";
-import { fetchCheckinEvents, scanCheckinQRCode } from "../services/api";
+
+const CAMERA_REGION_ID = "checkin-camera-reader";
+
+function formatTime(value) {
+  if (!value) return "—";
+  return new Date(value).toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+function getResultStyle(result) {
+  if (!result) return "border-white/10 bg-white/5 text-slate-300";
+  if (result.type === "success") return "border-emerald-400/30 bg-emerald-500/15 text-emerald-100";
+  if (result.type === "warning") return "border-amber-400/30 bg-amber-500/15 text-amber-100";
+  return "border-red-400/30 bg-red-500/15 text-red-100";
+}
 
 export default function CheckInPage() {
   const navigate = useNavigate();
+  const cameraRef = useRef(null);
+  const inFlightRef = useRef(false);
+  const selectedEventIdRef = useRef("");
+  const lastQrRef = useRef({
+    value: "",
+    time: 0,
+  });
 
   const [tab, setTab] = useState("scan");
   const [manualCode, setManualCode] = useState("");
-  const [flashOn, setFlashOn] = useState(false);
-
   const [events, setEvents] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState("");
-  const [loading, setLoading] = useState(true);
-
-  const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
-  const [scanLine, setScanLine] = useState(0);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraStarting, setCameraStarting] = useState(false);
+  const [cameraError, setCameraError] = useState("");
+  const [error, setError] = useState("");
+  const [result, setResult] = useState(null);
 
-  // ==============================
-  // LOGOUT
-  // ==============================
+  useEffect(() => {
+    selectedEventIdRef.current = selectedEventId;
+  }, [selectedEventId]);
+
   function handleLogout() {
     clearAuthSession();
-
-    navigate("/login", {
-      replace: true,
-    });
+    navigate("/login", { replace: true });
   }
 
-  // ==============================
-  // SCAN LINE ANIMATION
-  // ==============================
-  useEffect(() => {
-    const id = setInterval(() => {
-      setScanLine((value) => (value + 1.5) % 100);
-    }, 16);
+  async function loadEvents() {
+    setLoadingEvents(true);
+    setError("");
 
-    return () => {
-      clearInterval(id);
-    };
-  }, []);
-
-  // ==============================
-  // FETCH EVENTS ON MOUNT
-  // ==============================
-  useEffect(() => {
-    const loadEvents = async () => {
-      try {
-        const res = await fetchCheckinEvents();
-        if (res.success && res.data.length > 0) {
-          setEvents(res.data);
-          setSelectedEventId(res.data[0].id);
+    try {
+      const response = await fetchAssignedEvents();
+      const assignedEvents = response.data || [];
+      setEvents(assignedEvents);
+      setSelectedEventId((current) => {
+        if (assignedEvents.some((event) => String(event.ma_su_kien) === String(current))) {
+          return current;
         }
-      } catch (err) {
-        console.error("Lỗi khi tải danh sách sự kiện check-in", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadEvents();
-  }, []);
+        return assignedEvents[0]?.ma_su_kien ? String(assignedEvents[0].ma_su_kien) : "";
+      });
+    } catch (err) {
+      setError(err.message || "Không tải được danh sách sự kiện");
+    } finally {
+      setLoadingEvents(false);
+    }
+  }
 
-  // ==============================
-  // EVENT INFORMATION
-  // ==============================
-  const selectedEvent = events.find(
-    (event) => String(event.id) === String(selectedEventId)
-  );
-
-  const checkedInCount = selectedEvent
-    ? Math.floor(selectedEvent.registered * 0.7)
-    : 0;
-
-  const totalActive = selectedEvent
-    ? selectedEvent.registered
-    : 0;
-
-  // ==============================
-  // HANDLE CHECK-IN
-  // ==============================
-  async function handleScan(code) {
-    const input = (code || manualCode).trim();
-    if (!input) return;
-
-    if (!selectedEventId) {
-      alert("Vui lòng chọn sự kiện trước khi điểm danh!");
+  async function loadHistory(eventId) {
+    if (!eventId) {
+      setHistory([]);
       return;
     }
 
+    const requestEventId = String(eventId);
+    setLoadingHistory(true);
+
     try {
-      const res = await scanCheckinQRCode(selectedEventId, input);
-      const isSuccess = res.success;
+      const response = await fetchCheckInHistory({
+        eventId: requestEventId,
+        limit: 20,
+      });
 
-      const scanResult = {
-        success: isSuccess,
-        studentName: isSuccess ? res.data?.ho_ten : null,
-        studentId: isSuccess ? res.data?.mssv : input,
-        time: new Date().toLocaleTimeString("vi-VN", {
-          hour: "2-digit", minute: "2-digit", second: "2-digit",
-        }),
-        message: isSuccess ? "Thành công" : res.message || "Điểm danh thất bại",
-        faculty: null, // Api chưa trả khoa, có thể update sau
-      };
-
-      setResult(scanResult);
-
-      setHistory((previousHistory) => [
-        {
-          name: scanResult.studentName ?? "—",
-          studentId: scanResult.studentId,
-          time: scanResult.time,
-          status: scanResult.success ? "success" : "failed",
-          message: scanResult.success ? undefined : scanResult.message,
-        },
-        ...previousHistory,
-      ]);
-
-      if (scanResult.success) {
-        // Cập nhật lại số lượng checkin hiển thị
-        setEvents(prev => prev.map(e => String(e.id) === String(selectedEventId) ? { ...e, checkedIn: e.checkedIn + 1 } : e));
-        
-        setTimeout(() => setResult(null), 2000);
+      if (selectedEventIdRef.current === requestEventId) {
+        setHistory(response.data?.items || []);
       }
     } catch (err) {
-      setResult({
-        success: false,
-        studentName: null,
-        studentId: input,
-        time: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-        message: err.message || "Lỗi hệ thống",
-        faculty: null,
-      });
-      setHistory((previousHistory) => [
-        { name: "—", studentId: input, time: new Date().toLocaleTimeString("vi-VN"), status: "failed", message: err.message || "Lỗi hệ thống" },
-        ...previousHistory,
-      ]);
+      if (selectedEventIdRef.current === requestEventId) {
+        setError(err.message || "Không tải được lịch sử check-in");
+      }
+    } finally {
+      if (selectedEventIdRef.current === requestEventId) {
+        setLoadingHistory(false);
+      }
+    }
+  }
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      loadEvents();
+    });
+  }, []);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      loadHistory(selectedEventId);
+    });
+  }, [selectedEventId]);
+
+  async function stopCamera() {
+    const instance = cameraRef.current;
+    cameraRef.current = null;
+    setCameraActive(false);
+    setCameraStarting(false);
+
+    if (!instance) return;
+
+    try {
+      const state = instance.getState?.();
+      if (state === 2) {
+        await instance.stop();
+      }
+      await instance.clear();
+    } catch {
+      // Camera cleanup can throw if the browser already released the stream.
+    }
+  }
+
+  async function startCamera() {
+    setCameraError("");
+
+    if (!selectedEventId) {
+      setCameraError("Vui lòng chọn sự kiện trước khi mở camera.");
+      return;
     }
 
-    setManualCode("");
+    await stopCamera();
+
+    try {
+      setCameraStarting(true);
+      const cameras = await Html5Qrcode.getCameras();
+      const preferredCamera =
+        cameras.find((camera) => /back|rear|environment/i.test(camera.label)) ||
+        cameras[0];
+
+      if (!preferredCamera) {
+        throw new Error("Không tìm thấy camera trên thiết bị.");
+      }
+
+      const instance = new Html5Qrcode(CAMERA_REGION_ID);
+      cameraRef.current = instance;
+
+      await instance.start(
+        {
+          deviceId: {
+            exact: preferredCamera.id,
+          },
+        },
+        {
+          fps: 10,
+          aspectRatio: 16 / 9,
+          disableFlip: false,
+          qrbox: {
+            width: 220,
+            height: 220,
+          },
+        },
+        (decodedText) => {
+          handleScan(decodedText, {
+            source: "camera",
+          });
+        }
+      );
+
+      setCameraActive(true);
+    } catch (err) {
+      setCameraActive(false);
+      setCameraError(
+        err.message ||
+          "Không mở được camera. Bạn vẫn có thể nhập mã thủ công."
+      );
+    } finally {
+      setCameraStarting(false);
+    }
   }
 
-  // ==============================
-  // DEMO SCAN
-  // ==============================
-  function handleDemoScan() {
-    handleScan(
-      `TKT-2026-003412|${selectedEventId}|22521001`
-    );
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (tab !== "scan") {
+      queueMicrotask(() => {
+        stopCamera();
+      });
+    }
+  }, [tab]);
+
+  async function handleScan(code, options = {}) {
+    const qrCode = (code || manualCode).trim();
+    const eventIdAtScan = selectedEventIdRef.current;
+
+    if (!qrCode || !eventIdAtScan || inFlightRef.current) return;
+
+    const now = Date.now();
+    if (
+      options.source === "camera" &&
+      lastQrRef.current.value === qrCode &&
+      now - lastQrRef.current.time < 2500
+    ) {
+      return;
+    }
+
+    lastQrRef.current = {
+      value: qrCode,
+      time: now,
+    };
+    inFlightRef.current = true;
+    setManualCode("");
+    setResult(null);
+
+    try {
+      const response = await scanTicket({
+        eventId: eventIdAtScan,
+        qrCode,
+      });
+
+      if (selectedEventIdRef.current !== eventIdAtScan) return;
+
+      setResult({
+        type: "success",
+        title: "Check-in thành công",
+        message: response.data?.student?.ho_ten || "Vé hợp lệ",
+        detail: response.data?.student?.mssv || "",
+        time: formatTime(response.data?.checkedInAt),
+      });
+
+      await loadHistory(eventIdAtScan);
+    } catch (err) {
+      if (selectedEventIdRef.current !== eventIdAtScan) return;
+
+      setResult({
+        type: err.code === "ALREADY_CHECKED_IN" ? "warning" : "error",
+        title:
+          err.code === "ALREADY_CHECKED_IN"
+            ? "Vé đã check-in"
+            : "Không thể check-in",
+        message:
+          err.message ||
+          "Chưa xác nhận được kết quả. Vui lòng thử lại.",
+        detail: err.code || "",
+        time: formatTime(err.details?.checkedInAt || err.data?.checkedInAt),
+      });
+    } finally {
+      inFlightRef.current = false;
+    }
   }
+
+  const selectedEvent = events.find(
+    (event) => String(event.ma_su_kien) === String(selectedEventId)
+  );
 
   return (
-    <div
-      className="flex flex-col min-h-screen pb-20"
-      style={{
-        background: "#0f0f1a",
-      }}
-    >
-      {/* ==============================
-          HEADER
-      ============================== */}
-      <div
-        className="px-4 pb-3"
-        style={{
-          paddingTop: 16,
-          paddingBottom: 12,
-        }}
-      >
+    <div className="flex flex-col min-h-screen pb-20 bg-[#0f0f1a]">
+      <div className="px-4 pt-4 pb-3">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-bold text-lg text-white">
               Điểm danh
             </h1>
-
-            <p
-              className="text-xs"
-              style={{
-                color: "#475569",
-              }}
-            >
+            <p className="text-xs text-slate-500">
               Campus Event Hub
             </p>
           </div>
@@ -188,829 +293,188 @@ export default function CheckInPage() {
           <button
             type="button"
             onClick={handleLogout}
-            className="px-3 py-1.5 rounded-xl text-xs font-medium transition-colors hover:bg-white/10"
-            style={{
-              background:
-                "rgba(255,255,255,0.08)",
-              color: "#64748b",
-              border:
-                "1px solid rgba(255,255,255,0.08)",
-            }}
+            className="px-3 py-1.5 rounded-xl text-xs font-medium text-slate-400 border border-white/10 bg-white/10 hover:bg-white/15"
           >
             Thoát
           </button>
         </div>
       </div>
 
-      {/* ==============================
-          TAB BAR
-      ============================== */}
-      <div
-        className="flex mx-4 mb-3 p-1 rounded-xl"
-        style={{
-          background:
-            "rgba(255,255,255,0.06)",
-        }}
-      >
-        {["scan", "history"].map(
-          (currentTab) => (
-            <button
-              key={currentTab}
-              type="button"
-              onClick={() =>
-                setTab(currentTab)
-              }
-              className="flex-1 py-2 rounded-lg text-sm font-semibold transition-all"
-              style={{
-                background:
-                  tab === currentTab
-                    ? "#4f46e5"
-                    : "transparent",
+      <div className="flex mx-4 mb-3 p-1 rounded-xl bg-white/10">
+        {["scan", "history"].map((currentTab) => (
+          <button
+            key={currentTab}
+            type="button"
+            onClick={() => setTab(currentTab)}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
+              tab === currentTab
+                ? "bg-indigo-600 text-white"
+                : "text-slate-500"
+            }`}
+          >
+            {currentTab === "scan"
+              ? "Quét mã QR"
+              : `Lịch sử (${history.length})`}
+          </button>
+        ))}
+      </div>
 
-                color:
-                  tab === currentTab
-                    ? "white"
-                    : "#475569",
-              }}
-            >
-              {currentTab === "scan"
-                ? "Quét mã QR"
-                : `Lịch sử (${history.length})`}
-            </button>
-          )
+      <div className="px-4 mb-3">
+        <p className="text-xs font-medium mb-1.5 text-slate-500">
+          Sự kiện hiện tại
+        </p>
+
+        <select
+          value={selectedEventId}
+          onChange={(event) => {
+            setSelectedEventId(event.target.value);
+            setResult(null);
+          }}
+          disabled={loadingEvents || events.length === 0}
+          className="w-full px-4 py-3 rounded-2xl text-sm font-medium outline-none bg-white/10 text-white border border-white/10"
+        >
+          {events.length === 0 ? (
+            <option value="">
+              {loadingEvents ? "Đang tải..." : "Không có sự kiện"}
+            </option>
+          ) : (
+            events.map((event) => (
+              <option
+                key={event.ma_su_kien}
+                value={event.ma_su_kien}
+                className="bg-[#1a1a2e] text-white"
+              >
+                {event.ten_su_kien}
+              </option>
+            ))
+          )}
+        </select>
+
+        {selectedEvent && (
+          <p className="text-xs mt-2 text-slate-500">
+            {selectedEvent.canScan
+              ? "Đang trong cửa sổ check-in"
+              : "Chỉ xem được lịch sử hoặc chưa đến giờ check-in"}
+          </p>
         )}
       </div>
 
+      {error && (
+        <div className="mx-4 mb-3 rounded-2xl border border-red-400/30 bg-red-500/15 px-4 py-3 text-sm text-red-100">
+          {error}
+        </div>
+      )}
+
       {tab === "scan" ? (
-        <>
-          {/* ==============================
-              EVENT SELECTOR
-          ============================== */}
-          <div className="px-4 mb-3">
-            <p
-              className="text-xs font-medium mb-1.5"
-              style={{
-                color: "#475569",
-              }}
-            >
-              Sự kiện hiện tại
-            </p>
-
-            <select
-              value={selectedEventId}
-              onChange={(event) =>
-                setSelectedEventId(
-                  event.target.value
-                )
-              }
-              className="w-full px-4 py-3 rounded-2xl text-sm font-medium outline-none appearance-none"
-              style={{
-                background:
-                  "rgba(255,255,255,0.08)",
-                color: "white",
-                border:
-                  "1px solid rgba(255,255,255,0.1)",
-              }}
-            >
-              {events.map(
-                (event) => (
-                  <option
-                    key={event.id}
-                    value={event.id}
-                    style={{
-                      background:
-                        "#1a1a2e",
-                      color: "white",
-                    }}
-                  >
-                    {event.title}
-                  </option>
-                )
-              )}
-            </select>
-
-            {selectedEvent && (
-              <div className="flex gap-4 mt-2">
-                <p
-                  className="text-xs"
-                  style={{
-                    color: "#334155",
-                  }}
-                >
-                  Đã điểm danh:{" "}
-                  <span
-                    style={{
-                      color: "#4f46e5",
-                      fontFamily:
-                        "monospace",
-                    }}
-                  >
-                    {checkedInCount}
-                  </span>
-
-                  {" / "}
-
-                  <span
-                    style={{
-                      fontFamily:
-                        "monospace",
-                    }}
-                  >
-                    {totalActive}
-                  </span>{" "}
-                  đăng ký
-                </p>
+        <div className="px-4 space-y-3">
+          <div className="rounded-3xl overflow-hidden relative bg-slate-950 border border-white/10">
+            <div
+              id={CAMERA_REGION_ID}
+              className="min-h-[260px] aspect-video [&_video]:!w-full [&_video]:!h-full [&_video]:!object-cover [&_canvas]:!hidden"
+            />
+            {!cameraActive && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-slate-500">
+                {cameraStarting ? "Đang mở camera..." : "Camera chưa bật"}
+              </div>
+            )}
+            {cameraActive && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <div className="h-56 w-56 rounded-3xl border-2 border-white/70 shadow-[0_0_0_999px_rgba(2,6,23,0.35)]" />
               </div>
             )}
           </div>
 
-          {/* ==============================
-              CAMERA VIEWPORT
-          ============================== */}
-          <div
-            className="mx-4 rounded-3xl overflow-hidden relative flex-shrink-0"
-            style={{
-              height: "55vw",
-              maxHeight: 300,
-              background:
-                "linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)",
-            }}
-          >
-            <div className="absolute inset-0 flex items-center justify-center opacity-20">
-              <svg
-                className="w-20 h-20"
-                style={{
-                  color: "#4f46e5",
-                }}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={0.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"
-                />
-              </svg>
-            </div>
-
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="relative w-40 h-40">
-                {[
-                  ["top", "left"],
-                  ["top", "right"],
-                  ["bottom", "left"],
-                  ["bottom", "right"],
-                ].map(
-                  (
-                    [
-                      vertical,
-                      horizontal,
-                    ],
-                    index
-                  ) => (
-                    <div
-                      key={index}
-                      className="absolute"
-                      style={{
-                        [vertical]: 0,
-                        [horizontal]: 0,
-                        width: 28,
-                        height: 28,
-                      }}
-                    >
-                      <div
-                        style={{
-                          position:
-                            "absolute",
-                          [vertical]: 0,
-                          [horizontal]: 0,
-                          width: 2,
-                          height: 24,
-                          background:
-                            "#818cf8",
-                          borderRadius: 1,
-                        }}
-                      />
-
-                      <div
-                        style={{
-                          position:
-                            "absolute",
-                          [vertical]: 0,
-                          [horizontal]: 0,
-                          width: 24,
-                          height: 2,
-                          background:
-                            "#818cf8",
-                          borderRadius: 1,
-                        }}
-                      />
-                    </div>
-                  )
-                )}
-
-                <div
-                  className="absolute left-0 right-0"
-                  style={{
-                    height: 2,
-                    top: `${scanLine}%`,
-                    background:
-                      "linear-gradient(to right, transparent, #4f46e5, transparent)",
-                    boxShadow:
-                      "0 0 12px #4f46e5",
-                  }}
-                />
-
-                <p
-                  className="absolute text-xs font-medium text-center w-full whitespace-nowrap"
-                  style={{
-                    bottom: -28,
-                    color: "#475569",
-                  }}
-                >
-                  Đưa mã QR vào khung
-                </p>
-              </div>
-            </div>
-
-            <div className="absolute bottom-4 right-4 flex gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  setFlashOn(
-                    (value) => !value
-                  )
-                }
-                className="w-10 h-10 rounded-full flex items-center justify-center transition-all"
-                style={{
-                  background:
-                    flashOn
-                      ? "#f59e0b"
-                      : "rgba(255,255,255,0.12)",
-                }}
-              >
-                <svg
-                  className="w-5 h-5"
-                  style={{
-                    color: flashOn
-                      ? "white"
-                      : "#64748b",
-                  }}
-                  fill={
-                    flashOn
-                      ? "currentColor"
-                      : "none"
-                  }
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          {/* ==============================
-              MANUAL INPUT
-          ============================== */}
-          <div className="mx-4 mt-4">
-            <p
-              className="text-xs mb-2"
-              style={{
-                color: "#475569",
-              }}
-            >
-              Nhập mã vé thủ công
+          {cameraError && (
+            <p className="text-xs text-amber-200">
+              {cameraError}
             </p>
+          )}
 
-            <div className="flex gap-2">
-              <input
-                value={manualCode}
-                onChange={(event) =>
-                  setManualCode(
-                    event.target.value
-                  )
-                }
-                onKeyDown={(event) => {
-                  if (
-                    event.key === "Enter"
-                  ) {
-                    handleScan();
-                  }
-                }}
-                placeholder="VD: TKT-2026-003412"
-                className="flex-1 px-4 py-3 rounded-2xl text-sm outline-none"
-                style={{
-                  background:
-                    "rgba(255,255,255,0.07)",
-                  color: "white",
-                  border:
-                    "1px solid rgba(255,255,255,0.1)",
-                  fontFamily:
-                    "monospace",
-                }}
-              />
-
-              <button
-                type="button"
-                onClick={() =>
-                  handleScan()
-                }
-                className="px-4 py-3 rounded-2xl text-sm font-semibold text-white flex-shrink-0"
-                style={{
-                  background:
-                    "#4f46e5",
-                }}
-              >
-                Xác nhận
-              </button>
-            </div>
-          </div>
-
-          {/* ==============================
-              DEMO SCAN
-          ============================== */}
-          <div className="px-4 mt-3">
+          <div className="flex gap-2">
             <button
               type="button"
-              onClick={handleDemoScan}
-              className="w-full py-3 rounded-2xl text-sm font-semibold"
-              style={{
-                background:
-                  "rgba(79,70,229,0.2)",
-                color: "#818cf8",
-                border:
-                  "1px solid rgba(79,70,229,0.3)",
-              }}
+              onClick={cameraActive ? stopCamera : startCamera}
+              className="flex-1 py-3 rounded-2xl bg-indigo-600 text-white text-sm font-semibold disabled:opacity-50"
+              disabled={!selectedEventId}
             >
-              Quét demo (vé mặc định)
+              {cameraActive ? "Tắt camera" : cameraStarting ? "Đang mở..." : "Bật camera"}
             </button>
           </div>
 
-          {/* ==============================
-              RECENT HISTORY
-          ============================== */}
-          {history.length > 0 && (
-            <div className="px-4 mt-5 pb-6">
-              <h3
-                className="text-xs font-semibold uppercase tracking-wide mb-3"
-                style={{
-                  color: "#334155",
-                }}
-              >
-                Điểm danh gần đây
-              </h3>
-
-              <div className="space-y-2">
-                {history
-                  .slice(0, 3)
-                  .map(
-                    (
-                      historyItem,
-                      index
-                    ) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between px-4 py-3 rounded-2xl"
-                        style={{
-                          background:
-                            "rgba(255,255,255,0.04)",
-                          border:
-                            "1px solid rgba(255,255,255,0.06)",
-                        }}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
-                            style={{
-                              background:
-                                historyItem.status ===
-                                "success"
-                                  ? "#059669"
-                                  : "#dc2626",
-                            }}
-                          >
-                            {historyItem.status ===
-                            "success" ? (
-                              <svg
-                                className="w-3 h-3 text-white"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={
-                                  3
-                                }
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="m4.5 12.75 6 6 9-13.5"
-                                />
-                              </svg>
-                            ) : (
-                              <svg
-                                className="w-3 h-3 text-white"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={
-                                  3
-                                }
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M6 18 18 6M6 6l12 12"
-                                />
-                              </svg>
-                            )}
-                          </div>
-
-                          <div>
-                            <p className="text-sm font-medium text-white">
-                              {
-                                historyItem.name
-                              }
-                            </p>
-
-                            <p
-                              className="text-xs"
-                              style={{
-                                color:
-                                  "#475569",
-                                fontFamily:
-                                  "monospace",
-                              }}
-                            >
-                              {
-                                historyItem.studentId
-                              }
-                            </p>
-                          </div>
-                        </div>
-
-                        <span
-                          className="text-xs"
-                          style={{
-                            color:
-                              "#334155",
-                            fontFamily:
-                              "monospace",
-                          }}
-                        >
-                          {
-                            historyItem.time
-                          }
-                        </span>
-                      </div>
-                    )
-                  )}
-              </div>
-            </div>
-          )}
-        </>
-      ) : (
-        /* ==============================
-           HISTORY TAB
-        ============================== */
-        <div className="flex-1 px-4 pb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-base text-white">
-              Lịch sử điểm danh
-            </h2>
-
-            <span
-              className="text-xs"
-              style={{
-                color: "#475569",
-                fontFamily:
-                  "monospace",
+          <div className="flex gap-2">
+            <input
+              value={manualCode}
+              onChange={(event) => setManualCode(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  handleScan();
+                }
               }}
+              placeholder="Nhập mã QR thủ công"
+              className="flex-1 px-4 py-3 rounded-2xl bg-white/10 text-white text-sm outline-none border border-white/10 placeholder:text-slate-600"
+            />
+
+            <button
+              type="button"
+              onClick={() => handleScan()}
+              className="px-4 py-3 rounded-2xl bg-white text-slate-900 text-sm font-semibold"
             >
-              {
-                history.filter(
-                  (historyItem) =>
-                    historyItem.status ===
-                    "success"
-                ).length
-              }{" "}
-              thành công
-            </span>
+              Gửi
+            </button>
           </div>
 
-          {history.length === 0 ? (
-            <div className="text-center py-12">
-              <p
-                className="text-sm"
-                style={{
-                  color: "#334155",
-                }}
-              >
-                Chưa có lịch sử điểm danh
+          {result && (
+            <div className={`rounded-2xl border px-4 py-3 ${getResultStyle(result)}`}>
+              <p className="text-sm font-semibold">
+                {result.title}
               </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {history.map(
-                (
-                  historyItem,
-                  index
-                ) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-3 px-4 py-3.5 rounded-2xl"
-                    style={{
-                      background:
-                        "rgba(255,255,255,0.05)",
-                      border:
-                        "1px solid rgba(255,255,255,0.07)",
-                    }}
-                  >
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{
-                        background:
-                          historyItem.status ===
-                          "success"
-                            ? "rgba(5,150,105,0.2)"
-                            : "rgba(220,38,38,0.2)",
-                      }}
-                    >
-                      {historyItem.status ===
-                      "success" ? (
-                        <svg
-                          className="w-4 h-4"
-                          style={{
-                            color:
-                              "#059669",
-                          }}
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2.5}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="m4.5 12.75 6 6 9-13.5"
-                          />
-                        </svg>
-                      ) : (
-                        <svg
-                          className="w-4 h-4"
-                          style={{
-                            color:
-                              "#dc2626",
-                          }}
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2.5}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M6 18 18 6M6 6l12 12"
-                          />
-                        </svg>
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">
-                        {
-                          historyItem.name
-                        }
-                      </p>
-
-                      <p
-                        className="text-xs"
-                        style={{
-                          color:
-                            "#475569",
-                          fontFamily:
-                            "monospace",
-                        }}
-                      >
-                        {
-                          historyItem.studentId
-                        }{" "}
-                        ·{" "}
-                        {
-                          historyItem.time
-                        }
-                      </p>
-
-                      {historyItem.message && (
-                        <p
-                          className="text-xs mt-0.5"
-                          style={{
-                            color:
-                              "#dc2626",
-                          }}
-                        >
-                          {
-                            historyItem.message
-                          }
-                        </p>
-                      )}
-                    </div>
-
-                    <span
-                      className="px-2 py-0.5 rounded-full text-xs font-semibold flex-shrink-0"
-                      style={{
-                        background:
-                          historyItem.status ===
-                          "success"
-                            ? "rgba(5,150,105,0.15)"
-                            : "rgba(220,38,38,0.15)",
-
-                        color:
-                          historyItem.status ===
-                          "success"
-                            ? "#059669"
-                            : "#dc2626",
-                      }}
-                    >
-                      {historyItem.status ===
-                      "success"
-                        ? "Thành công"
-                        : "Thất bại"}
-                    </span>
-                  </div>
-                )
+              <p className="text-sm mt-1">
+                {result.message}
+              </p>
+              {(result.detail || result.time) && (
+                <p className="text-xs mt-1 opacity-80">
+                  {[result.detail, result.time].filter(Boolean).join(" · ")}
+                </p>
               )}
             </div>
           )}
         </div>
-      )}
-
-      {/* ==============================
-          RESULT OVERLAY
-      ============================== */}
-      {result && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center px-6"
-          style={{
-            background:
-              result.success
-                ? "rgba(5,150,105,0.97)"
-                : "rgba(220,38,38,0.97)",
-          }}
-        >
-          <div className="text-center">
-            <div
-              className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-5"
-              style={{
-                background:
-                  "rgba(255,255,255,0.2)",
-              }}
-            >
-              {result.success ? (
-                <svg
-                  className="w-12 h-12 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="m4.5 12.75 6 6 9-13.5"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  className="w-12 h-12 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 9v3.75m9.303 3.376c.866 1.5-.217 3.374-1.948 3.374H4.645c-1.73 0-2.813-1.874-1.948-3.374L10.051 3.378c.866-1.5 3.032-1.5 3.898 0L22.303 16.126ZM12 15.75h.007v.008H12v-.008Z"
-                  />
-                </svg>
-              )}
-            </div>
-
-            {result.success ? (
-              <>
-                <h2 className="font-bold text-2xl text-white mb-3">
-                  Điểm danh thành công!
-                </h2>
-
-                <p
-                  className="text-xl font-semibold mb-1"
-                  style={{
-                    color: "#d1fae5",
-                  }}
-                >
-                  {result.studentName}
-                </p>
-
-                <p
-                  className="text-sm mb-0.5"
-                  style={{
-                    color: "#a7f3d0",
-                    fontFamily:
-                      "monospace",
-                  }}
-                >
-                  MSSV: {result.studentId}
-                </p>
-
-                {result.faculty && (
-                  <p
-                    className="text-sm"
-                    style={{
-                      color:
-                        "#a7f3d0",
-                    }}
-                  >
-                    {result.faculty}
+      ) : (
+        <div className="px-4 space-y-2">
+          {loadingHistory ? (
+            <p className="text-center text-sm text-slate-500 py-8">
+              Đang tải lịch sử...
+            </p>
+          ) : history.length === 0 ? (
+            <p className="text-center text-sm text-slate-500 py-8">
+              Chưa có lượt check-in thành công.
+            </p>
+          ) : (
+            history.map((item) => (
+              <div
+                key={item.ma_dang_ky}
+                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-white">
+                      {item.student?.ho_ten || "Không rõ sinh viên"}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {item.student?.mssv || "—"}
+                    </p>
+                  </div>
+                  <p className="text-xs text-slate-400 whitespace-nowrap">
+                    {formatTime(item.checkedInAt)}
                   </p>
-                )}
-
-                {result.time && (
-                  <p
-                    className="text-sm mt-1"
-                    style={{
-                      color:
-                        "#6ee7b7",
-                      fontFamily:
-                        "monospace",
-                    }}
-                  >
-                    Thời gian:{" "}
-                    {result.time}
-                  </p>
-                )}
-
-                <p
-                  className="text-sm mt-2"
-                  style={{
-                    color: "#a7f3d0",
-                  }}
-                >
-                  Đã ghi nhận vào hệ thống
-                </p>
-
-                <p className="text-xs mt-4 opacity-60 text-white">
-                  Tự động đóng sau 2 giây...
-                </p>
-              </>
-            ) : (
-              <>
-                <h2 className="font-bold text-2xl text-white mb-3">
-                  Không thể điểm danh
-                </h2>
-
-                <p
-                  className="text-base mb-8"
-                  style={{
-                    color: "#fecaca",
-                  }}
-                >
-                  {result.message}
-                </p>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setResult(null)
-                  }
-                  className="px-8 py-3 rounded-2xl text-sm font-bold"
-                  style={{
-                    background:
-                      "white",
-                    color:
-                      "#dc2626",
-                  }}
-                >
-                  Quét lại
-                </button>
-              </>
-            )}
-          </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
 
-      {/* Staff/Organizer có thể quay về các trang khác */}
-      <BottomNav
-        showCheckin={true}
-        dark={true}
-      />
+      <BottomNav dark showCheckin />
     </div>
   );
 }

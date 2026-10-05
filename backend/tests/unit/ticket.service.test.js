@@ -61,8 +61,47 @@ describe('Ticket Service', () => {
     });
 
     describe('getMyTickets', () => {
-        it('should return a list of tickets', async () => {
-            const mockData = [{ ma_dang_ky: 1, ma_su_kien: 10 }];
+        it('should return grouped tickets with UI flags', async () => {
+            const mockData = [
+                {
+                    ma_dang_ky: 1,
+                    ma_qr_code: 'qr-1',
+                    trang_thai_ve: 'DaDangKy',
+                    thoi_gian_tao: '2026-10-01T00:00:00',
+                    thoi_gian_check_in: null,
+                    thoi_gian_huy: null,
+                    su_kien: {
+                        ma_su_kien: 10,
+                        ten_su_kien: 'Future Event',
+                        dia_diem: 'Hall',
+                        phong: 'A1',
+                        ngay_dien_ra: '2026-10-06',
+                        thoi_gian_bat_dau: '09:00:00',
+                        thoi_gian_ket_thuc: '10:00:00',
+                        trang_thai_su_kien: 'SapToChuc',
+                        da_xoa: false
+                    }
+                },
+                {
+                    ma_dang_ky: 2,
+                    ma_qr_code: 'qr-2',
+                    trang_thai_ve: 'DaCheckIn',
+                    thoi_gian_tao: '2026-10-01T00:00:00',
+                    thoi_gian_check_in: '2026-10-05T03:30:00',
+                    thoi_gian_huy: null,
+                    su_kien: {
+                        ma_su_kien: 11,
+                        ten_su_kien: 'Past Event',
+                        dia_diem: 'Room',
+                        phong: 'B1',
+                        ngay_dien_ra: '2026-10-05',
+                        thoi_gian_bat_dau: '09:00:00',
+                        thoi_gian_ket_thuc: '10:00:00',
+                        trang_thai_su_kien: 'DaKetThuc',
+                        da_xoa: false
+                    }
+                }
+            ];
             const mockSelect = jest.fn().mockReturnThis();
             const mockEq1 = jest.fn().mockReturnThis();
             const mockEq2 = jest.fn().mockReturnThis();
@@ -77,54 +116,63 @@ describe('Ticket Service', () => {
 
             // Mocking chain
             mockSelect.mockReturnValue({ eq: mockEq1 });
-            mockEq1.mockReturnValue({ neq: mockEq2 });
+            mockEq1.mockReturnValue({ eq: mockEq2 });
             mockEq2.mockReturnValue({ order: mockOrder });
 
-            const result = await ticketService.getMyTickets(1);
+            const result = await ticketService.getMyTickets(1, {
+                now: new Date('2026-10-05T03:30:00.000Z')
+            });
 
-            expect(result).toEqual(mockData);
+            expect(result.upcoming).toHaveLength(1);
+            expect(result.history).toHaveLength(1);
+            expect(result.upcoming[0]).toMatchObject({
+                ma_dang_ky: 1,
+                canCancel: true,
+                canShowQr: true,
+                group: 'upcoming'
+            });
             expect(supabase.from).toHaveBeenCalledWith('dang_ky');
         });
     });
 
     describe('cancelTicket', () => {
-        it('should cancel a ticket successfully', async () => {
-            const mockData = { ma_dang_ky: 1, trang_thai_ve: 'DaHuy' };
-            const mockUpdate = jest.fn().mockReturnThis();
-            const mockEq1 = jest.fn().mockReturnThis();
-            const mockEq2 = jest.fn().mockReturnThis();
-            const mockEq3 = jest.fn().mockReturnThis();
-            const mockSelect = jest.fn().mockReturnThis();
-            const mockSingle = jest.fn().mockResolvedValue({ data: mockData, error: null });
-
-            supabase.from.mockReturnValue({ update: mockUpdate });
-            mockUpdate.mockReturnValue({ eq: mockEq1 });
-            mockEq1.mockReturnValue({ eq: mockEq2 });
-            mockEq2.mockReturnValue({ eq: mockEq3 });
-            mockEq3.mockReturnValue({ select: mockSelect });
-            mockSelect.mockReturnValue({ single: mockSingle });
+        it('should cancel a ticket through RPC successfully', async () => {
+            supabase.rpc.mockResolvedValue({
+                data: {
+                    success: true,
+                    code: 'TICKET_CANCELLED',
+                    ma_dang_ky: 1,
+                    trang_thai_ve: 'DaHuy',
+                    canceledAt: '2026-10-05T03:30:00'
+                },
+                error: null
+            });
 
             const result = await ticketService.cancelTicket(1, 1);
 
-            expect(result).toEqual(mockData);
+            expect(supabase.rpc).toHaveBeenCalledWith('cancel_ticket', {
+                p_actor_id: 1,
+                p_ma_dang_ky: 1
+            });
+            expect(result).toEqual({
+                ma_dang_ky: 1,
+                trang_thai_ve: 'DaHuy',
+                canceledAt: '2026-10-05T03:30:00'
+            });
         });
 
-        it('should throw error if cancel fails', async () => {
-            const mockUpdate = jest.fn().mockReturnThis();
-            const mockEq1 = jest.fn().mockReturnThis();
-            const mockEq2 = jest.fn().mockReturnThis();
-            const mockEq3 = jest.fn().mockReturnThis();
-            const mockSelect = jest.fn().mockReturnThis();
-            const mockSingle = jest.fn().mockResolvedValue({ data: null, error: { message: 'Lỗi' } });
+        it('should throw coded error if cancellation is not allowed', async () => {
+            supabase.rpc.mockResolvedValue({
+                data: {
+                    success: false,
+                    code: 'CANCELLATION_NOT_ALLOWED'
+                },
+                error: null
+            });
 
-            supabase.from.mockReturnValue({ update: mockUpdate });
-            mockUpdate.mockReturnValue({ eq: mockEq1 });
-            mockEq1.mockReturnValue({ eq: mockEq2 });
-            mockEq2.mockReturnValue({ eq: mockEq3 });
-            mockEq3.mockReturnValue({ select: mockSelect });
-            mockSelect.mockReturnValue({ single: mockSingle });
-
-            await expect(ticketService.cancelTicket(1, 1)).rejects.toThrow('Không thể hủy vé. Vé đã bị hủy hoặc bạn đã check-in.');
+            await expect(ticketService.cancelTicket(1, 1)).rejects.toMatchObject({
+                code: 'CANCELLATION_NOT_ALLOWED'
+            });
         });
     });
 });
