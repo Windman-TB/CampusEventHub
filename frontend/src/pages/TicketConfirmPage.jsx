@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useLocation, Link } from 'react-router-dom';
+import { apiFetch } from '../services/api';
 
 const TicketConfirmPage = () => {
     const location = useLocation();
@@ -32,19 +33,11 @@ const TicketConfirmPage = () => {
         setErrorMsg('');
         
         try {
-            const token = localStorage.getItem('accessToken');
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-            
-            const response = await fetch(`${apiUrl}/api/tickets/book`, {
+            // Sử dụng apiFetch thay cho fetch thủ công
+            const data = await apiFetch('/api/tickets/book', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
                 body: JSON.stringify({ eventId: event.id })
             });
-
-            const data = await response.json();
 
             if (!data.success) {
                 throw new Error(data.message || data.error || 'Lỗi đặt vé');
