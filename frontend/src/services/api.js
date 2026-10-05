@@ -120,9 +120,25 @@ export async function fetchOrganizerEvents() {
   );
 }
 
-// ==========================================
-// EVENT APIs
-// ==========================================
+// GET /api/organizer/dashboard-stats
+export async function fetchDashboardStats() {
+  return apiFetch(
+    "/api/organizer/dashboard-stats"
+  );
+}
+
+// GET /api/checkin/events
+export async function fetchCheckinEvents() {
+  return apiFetch('/api/checkin/events');
+}
+
+// POST /api/checkin/scan
+export async function scanCheckinQRCode(eventId, qrCode) {
+  return apiFetch('/api/checkin/scan', {
+    method: 'POST',
+    body: JSON.stringify({ event_id: eventId, qr_code: qrCode })
+  });
+}
 
 // GET /api/events/:id
 export async function fetchEventById(id) {

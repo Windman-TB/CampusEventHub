@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Calendar, MapPin, Users, Check } from 'lucide-react';
-import { getEventStatusLabel, TOPIC_LABELS, TOPIC_COLORS } from '../mocks/mockData';
+import { getEventStatusLabel, TOPIC_LABELS, TOPIC_COLORS } from '../utils/constants';
 import { getEventById } from '../services/eventService';
 
 // Tạo mã vé ngẫu nhiên dạng TKT-YYYY-XXXXXX

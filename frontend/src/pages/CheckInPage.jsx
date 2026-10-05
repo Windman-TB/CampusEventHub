@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { MOCK_EVENTS } from "../mocks/mockData";
 import { BottomNav } from "../layouts/MainLayout";
 import { clearAuthSession } from "../utils/authStorage";
+import { fetchCheckinEvents, scanCheckinQRCode } from "../services/api";
 
 export default function CheckInPage() {
   const navigate = useNavigate();
@@ -12,9 +12,9 @@ export default function CheckInPage() {
   const [manualCode, setManualCode] = useState("");
   const [flashOn, setFlashOn] = useState(false);
 
-  const [selectedEventId, setSelectedEventId] = useState(
-    MOCK_EVENTS[0]?.id || ""
-  );
+  const [events, setEvents] = useState([]);
+  const [selectedEventId, setSelectedEventId] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
@@ -45,10 +45,30 @@ export default function CheckInPage() {
   }, []);
 
   // ==============================
+  // FETCH EVENTS ON MOUNT
+  // ==============================
+  useEffect(() => {
+    const loadEvents = async () => {
+      try {
+        const res = await fetchCheckinEvents();
+        if (res.success && res.data.length > 0) {
+          setEvents(res.data);
+          setSelectedEventId(res.data[0].id);
+        }
+      } catch (err) {
+        console.error("Lỗi khi tải danh sách sự kiện check-in", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadEvents();
+  }, []);
+
+  // ==============================
   // EVENT INFORMATION
   // ==============================
-  const selectedEvent = MOCK_EVENTS.find(
-    (event) => event.id === selectedEventId
+  const selectedEvent = events.find(
+    (event) => String(event.id) === String(selectedEventId)
   );
 
   const checkedInCount = selectedEvent
@@ -62,78 +82,62 @@ export default function CheckInPage() {
   // ==============================
   // HANDLE CHECK-IN
   // ==============================
-  function handleScan(code) {
+  async function handleScan(code) {
     const input = (code || manualCode).trim();
+    if (!input) return;
 
-    if (!input) {
+    if (!selectedEventId) {
+      alert("Vui lòng chọn sự kiện trước khi điểm danh!");
       return;
     }
 
-    // TODO:
-    // Hiện tại vẫn là mock check-in.
-    // Sau này thay bằng API backend thực tế.
-    const isSuccess = !input.includes("fail");
+    try {
+      const res = await scanCheckinQRCode(selectedEventId, input);
+      const isSuccess = res.success;
 
-    const scanResult = {
-      success: isSuccess,
+      const scanResult = {
+        success: isSuccess,
+        studentName: isSuccess ? res.data?.ho_ten : null,
+        studentId: isSuccess ? res.data?.mssv : input,
+        time: new Date().toLocaleTimeString("vi-VN", {
+          hour: "2-digit", minute: "2-digit", second: "2-digit",
+        }),
+        message: isSuccess ? "Thành công" : res.message || "Điểm danh thất bại",
+        faculty: null, // Api chưa trả khoa, có thể update sau
+      };
 
-      studentName: isSuccess
-        ? "Nguyễn Văn A"
-        : null,
+      setResult(scanResult);
 
-      studentId: input,
-
-      time: new Date().toLocaleTimeString(
-        "vi-VN",
+      setHistory((previousHistory) => [
         {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        }
-      ),
+          name: scanResult.studentName ?? "—",
+          studentId: scanResult.studentId,
+          time: scanResult.time,
+          status: scanResult.success ? "success" : "failed",
+          message: scanResult.success ? undefined : scanResult.message,
+        },
+        ...previousHistory,
+      ]);
 
-      message: isSuccess
-        ? "Thành công"
-        : "Vé không hợp lệ hoặc đã sử dụng",
+      if (scanResult.success) {
+        // Cập nhật lại số lượng checkin hiển thị
+        setEvents(prev => prev.map(e => String(e.id) === String(selectedEventId) ? { ...e, checkedIn: e.checkedIn + 1 } : e));
 
-      faculty: isSuccess
-        ? "Công nghệ Thông tin"
-        : null,
-    };
-
-    setResult(scanResult);
-
-    const historyEntry = {
-      name:
-        scanResult.studentName ??
-        "—",
-
-      studentId:
-        scanResult.studentId,
-
-      time:
-        scanResult.time,
-
-      status:
-        scanResult.success
-          ? "success"
-          : "failed",
-
-      message:
-        scanResult.success
-          ? undefined
-          : scanResult.message,
-    };
-
-    setHistory((previousHistory) => [
-      historyEntry,
-      ...previousHistory,
-    ]);
-
-    if (scanResult.success) {
-      setTimeout(() => {
-        setResult(null);
-      }, 2000);
+        setTimeout(() => setResult(null), 2000);
+      }
+    } catch (err) {
+      setResult({
+        success: false,
+        studentName: null,
+        studentId: input,
+        time: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+        message: err.message || "Lỗi hệ thống",
+        faculty: null,
+      });
+      setHistory((previousHistory) => [
+        { name: "—", studentId: input, time: new Date().toLocaleTimeString("vi-VN"), status: "failed", message: err.message || "Lỗi hệ thống" },
+        ...previousHistory,
+      ]);
     }
 
     setManualCode("");
@@ -268,7 +272,7 @@ export default function CheckInPage() {
                   "1px solid rgba(255,255,255,0.1)",
               }}
             >
-              {MOCK_EVENTS.map(
+              {events.map(
                 (event) => (
                   <option
                     key={event.id}
