@@ -1,261 +1,230 @@
 const crypto = require('crypto');
 const supabase = require('../config/supabase');
+const { sendTicketEmail } = require('./mail.service'); // Đã bật cho Gói 4 & 6
 
-const {
-  sendBookingConfirmation,
-} = require('./mail.service');
+function toPositiveInteger(value) {
+    const number = Number(value);
+    return Number.isSafeInteger(number) && number > 0 ? number : null;
+}
 
-// ============================================================
-// TẠO QR CODE TOKEN BẢO MẬT
-// ============================================================
+function normalizeDate(value) {
+    if (!value) return null;
+    if (typeof value === 'string') return value.slice(0, 10);
+    if (value instanceof Date) return value.toISOString().slice(0, 10);
+    return null;
+}
 
+function normalizeTime(value) {
+    if (!value || typeof value !== 'string') return null;
+    return value.length === 5 ? `${value}:00` : value.slice(0, 8);
+}
+
+function buildVietnamDateTime(dateValue, timeValue) {
+    const date = normalizeDate(dateValue);
+    const time = normalizeTime(timeValue);
+    if (!date || !time) return null;
+
+    const parsed = new Date(`${date}T${time}+07:00`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getEventWindow(event) {
+    return {
+        startsAt: buildVietnamDateTime(event?.ngay_dien_ra, event?.thoi_gian_bat_dau),
+        endsAt: buildVietnamDateTime(event?.ngay_dien_ra, event?.thoi_gian_ket_thuc)
+    };
+}
+
+function normalizeRpcPayload(data) {
+    if (Array.isArray(data)) return data[0] || null;
+    return data || null;
+}
+
+/**
+ * Service sinh mã QR Code bảo mật bằng HMAC SHA-256
+ */
 const generateSecureQRCode = (userId, eventId) => {
-  const rawData =
-    `${userId}-${eventId}-${Date.now()}-${crypto.randomUUID()}`;
-
-  const secretKey = process.env.JWT_SECRET;
-
-  if (!secretKey) {
-    throw new Error(
-      'Thiếu JWT_SECRET trong environment variables'
-    );
-  }
-
-  return crypto
-    .createHmac('sha256', secretKey)
-    .update(rawData)
-    .digest('hex');
+    const rawData = `${userId}-${eventId}-${Date.now()}-${crypto.randomUUID()}`;
+    const secretKey = process.env.JWT_SECRET || 'campus-event-hub-secret-key-default';
+    
+    // Hash thông tin vé để tạo chuỗi bảo mật chống làm giả
+    const qrCodeHash = crypto.createHmac('sha256', secretKey)
+                            .update(rawData)
+                            .digest('hex');
+    
+    return qrCodeHash;
 };
 
-// ============================================================
-// GỬI EMAIL XÁC NHẬN ĐẶT VÉ
-// Hàm này chạy riêng, không làm fail quá trình đặt vé
-// ============================================================
+/**
+ * Gọi Stored Function dat_ve_su_kien trên Supabase
+ */
+const bookTicket = async (userId, eventId) => {
+    // 1. Sinh mã QR bảo mật
+    const qrCode = generateSecureQRCode(userId, eventId);
 
-const sendBookingEmailAsync = async (
-  userId,
-  eventId,
-  ticketId,
-  qrCode
-) => {
-  // 1. Lấy thông tin người dùng
-  const {
-    data: user,
-    error: userError,
-  } = await supabase
-    .from('tai_khoan')
-    .select(`
-      ma_tai_khoan,
-      ho_ten,
-      email
-    `)
-    .eq('ma_tai_khoan', userId)
-    .eq('da_xoa', false)
-    .single();
+    // 2. Gọi RPC trên Supabase để thực hiện khóa bi quan (Pessimistic Lock)
+    const { data, error } = await supabase.rpc('dat_ve_su_kien', {
+        p_ma_tai_khoan: userId,
+        p_ma_su_kien: eventId,
+        p_ma_qr_code: qrCode
+    });
 
-  if (userError) {
-    throw userError;
-  }
-
-  // 2. Lấy thông tin sự kiện
-  const {
-    data: event,
-    error: eventError,
-  } = await supabase
-    .from('su_kien')
-    .select(`
-      ma_su_kien,
-      ten_su_kien,
-      ngay_dien_ra,
-      thoi_gian_bat_dau,
-      thoi_gian_ket_thuc,
-      dia_diem,
-      phong
-    `)
-    .eq('ma_su_kien', eventId)
-    .eq('da_xoa', false)
-    .single();
-
-  if (eventError) {
-    throw eventError;
-  }
-
-  // 3. Gửi email xác nhận
-  await sendBookingConfirmation(
-    user.email,
-    event,
-    {
-      ticketId,
-      qrCode,
+    // 3. Xử lý kết quả trả về từ RPC
+    if (error) {
+        throw new Error(error.message || 'Lỗi hệ thống khi đặt vé');
     }
-  );
 
-  console.log(
-    `Đã gửi email xác nhận vé cho ${user.email}`
-  );
-};
-
-// ============================================================
-// ĐẶT VÉ
-// ============================================================
-
-const bookTicket = async (
-  userId,
-  eventId
-) => {
-  // 1. Sinh mã QR bảo mật
-  const qrCode =
-    generateSecureQRCode(
-      userId,
-      eventId
-    );
-
-  // 2. Gọi Stored Function chống overbooking
-  const {
-    data,
-    error,
-  } = await supabase.rpc(
-    'dat_ve_su_kien',
-    {
-      p_ma_tai_khoan: userId,
-      p_ma_su_kien: eventId,
-      p_ma_qr_code: qrCode,
+    if (data && !data.success) {
+        throw new Error(data.message || 'Đặt vé thất bại');
     }
-  );
 
-  // 3. Lỗi từ Supabase
-  if (error) {
-    throw new Error(
-      error.message ||
-        'Lỗi hệ thống khi đặt vé'
-    );
-  }
+    // 4. Gửi email bất đồng bộ - Tích hợp cho Gói 4
+    sendTicketEmail(userId, eventId, qrCode).catch(err => console.error("Lỗi gửi email:", err));
 
-  // 4. Stored Function báo thất bại
-  if (!data?.success) {
-    throw new Error(
-      data?.message ||
-        'Đặt vé thất bại'
-    );
-  }
-
-  const ticketId =
-    data.ma_dang_ky;
-
-  // 5. Gửi email bất đồng bộ
-  // KHÔNG await ở đây
-  // Email lỗi vẫn không ảnh hưởng vé đã đặt
-  sendBookingEmailAsync(
-    userId,
-    eventId,
-    ticketId,
-    qrCode
-  ).catch((error) => {
-    console.error(
-      'Lỗi gửi email xác nhận đặt vé:',
-      error.message
-    );
-  });
-
-  // 6. Trả kết quả đặt vé
-  return {
-    ticketId,
-    qrCode,
-    message:
-      data?.message ||
-      'Đặt vé thành công',
-  };
+    return {
+        qrCode,
+        message: data?.message || 'Đặt vé thành công'
+    };
 };
 
-// ============================================================
-// LẤY DANH SÁCH VÉ CỦA USER
-// ============================================================
+function mapTicket(ticket, now = new Date()) {
+    const event = ticket.su_kien || null;
+    const { startsAt, endsAt } = getEventWindow(event);
+    const status = ticket.trang_thai_ve;
+    const eventStatus = event?.trang_thai_su_kien;
+    const hasNotStarted = startsAt ? now < startsAt : false;
+    const inCheckInWindow = startsAt && endsAt ? now >= startsAt && now < endsAt : false;
+    const canCancel =
+        status === 'DaDangKy' &&
+        hasNotStarted &&
+        eventStatus !== 'DangDienRa' &&
+        eventStatus !== 'DaKetThuc';
+    const canShowQr =
+        status === 'DaDangKy' &&
+        (hasNotStarted || inCheckInWindow) &&
+        eventStatus !== 'BanNhap' &&
+        eventStatus !== 'DaKetThuc';
+    const group =
+        status === 'DaDangKy' && hasNotStarted ? 'upcoming' : 'history';
 
-const getMyTickets = async (
-  userId
-) => {
-  const {
-    data,
-    error,
-  } = await supabase
-    .from('dang_ky')
-    .select(`
-      *,
-      su_kien (*)
-    `)
-    .eq(
-      'ma_tai_khoan',
-      userId
-    )
-    .neq(
-      'da_xoa',
-      true
-    )
-    .order(
-      'thoi_gian_tao',
-      {
-        ascending: false,
-      }
-    );
+    return {
+        ma_dang_ky: ticket.ma_dang_ky,
+        ma_qr_code: ticket.ma_qr_code,
+        trang_thai_ve: status,
+        thoi_gian_tao: ticket.thoi_gian_tao,
+        thoi_gian_check_in: ticket.thoi_gian_check_in,
+        thoi_gian_huy: ticket.thoi_gian_huy,
+        canCancel,
+        canShowQr,
+        group,
+        su_kien: event
+            ? {
+                ma_su_kien: event.ma_su_kien,
+                ten_su_kien: event.ten_su_kien,
+                dia_diem: event.dia_diem,
+                phong: event.phong,
+                ngay_dien_ra: normalizeDate(event.ngay_dien_ra),
+                thoi_gian_bat_dau: normalizeTime(event.thoi_gian_bat_dau),
+                thoi_gian_ket_thuc: normalizeTime(event.thoi_gian_ket_thuc),
+                trang_thai_su_kien: event.trang_thai_su_kien
+            }
+            : null
+    };
+}
 
-  if (error) {
-    throw error;
-  }
+const getMyTickets = async (userId, options = {}) => {
+    const parsedUserId = toPositiveInteger(userId);
+    if (!parsedUserId) {
+        const error = new Error('Bạn chưa đăng nhập');
+        error.code = 'UNAUTHORIZED';
+        throw error;
+    }
 
-  return data;
+    const { data, error } = await supabase
+        .from('dang_ky')
+        .select(`
+            ma_dang_ky,
+            ma_qr_code,
+            trang_thai_ve,
+            thoi_gian_tao,
+            thoi_gian_check_in,
+            thoi_gian_huy,
+            su_kien (
+                ma_su_kien,
+                ten_su_kien,
+                dia_diem,
+                phong,
+                ngay_dien_ra,
+                thoi_gian_bat_dau,
+                thoi_gian_ket_thuc,
+                trang_thai_su_kien,
+                da_xoa
+            )
+        `)
+        .eq('ma_tai_khoan', parsedUserId)
+        .eq('da_xoa', false)
+        .order('thoi_gian_tao', { ascending: false });
+
+    if (error) throw error;
+
+    const tickets = (data || [])
+        .filter((ticket) => !ticket.su_kien || ticket.su_kien.da_xoa !== true)
+        .map((ticket) => mapTicket(ticket, options.now));
+
+    return {
+        upcoming: tickets.filter((ticket) => ticket.group === 'upcoming'),
+        history: tickets.filter((ticket) => ticket.group === 'history'),
+        nextCursor: null
+    };
 };
 
-// ============================================================
-// HỦY VÉ
-// ============================================================
+const cancelTicket = async (userId, ticketId) => {
+    const parsedUserId = toPositiveInteger(userId);
+    const parsedTicketId = toPositiveInteger(ticketId);
 
-const cancelTicket = async (
-  userId,
-  ticketId
-) => {
-  const {
-    data,
-    error,
-  } = await supabase
-    .from('dang_ky')
-    .update({
-      trang_thai_ve:
-        'DaHuy',
+    if (!parsedUserId || !parsedTicketId) {
+        const error = new Error('ID vé không hợp lệ');
+        error.code = 'VALIDATION_ERROR';
+        throw error;
+    }
 
-      thoi_gian_huy:
-        new Date(),
-    })
-    .eq(
-      'ma_dang_ky',
-      ticketId
-    )
-    .eq(
-      'ma_tai_khoan',
-      userId
-    )
-    .eq(
-      'trang_thai_ve',
-      'DaDangKy'
-    )
-    .select()
-    .single();
+    const { data, error } = await supabase.rpc('cancel_ticket', {
+        p_actor_id: parsedUserId,
+        p_ma_dang_ky: parsedTicketId
+    });
 
-  if (error) {
-    throw new Error(
-      'Không thể hủy vé. Vé đã bị hủy hoặc bạn đã check-in.'
-    );
-  }
+    if (error) throw error;
 
-  return data;
+    const payload = normalizeRpcPayload(data);
+    if (!payload || !payload.code) {
+        const internalError = new Error('Không thể hủy vé');
+        internalError.code = 'INTERNAL_ERROR';
+        throw internalError;
+    }
+
+    if (!payload.success) {
+        const cancelError = new Error(
+            payload.code === 'TICKET_ALREADY_CANCELLED'
+                ? 'Vé đã được hủy trước đó'
+                : payload.code === 'INVALID_TICKET'
+                    ? 'Vé không tồn tại'
+                    : 'Không thể hủy vé ở thời điểm hiện tại'
+        );
+        cancelError.code = payload.code;
+        throw cancelError;
+    }
+
+    return {
+        ma_dang_ky: payload.ma_dang_ky,
+        trang_thai_ve: payload.trang_thai_ve,
+        canceledAt: payload.canceledAt
+    };
 };
-
-// ============================================================
-// EXPORT
-// ============================================================
 
 module.exports = {
-  bookTicket,
-  generateSecureQRCode,
-  getMyTickets,
-  cancelTicket,
+    bookTicket,
+    generateSecureQRCode,
+    getMyTickets,
+    mapTicket,
+    cancelTicket
 };

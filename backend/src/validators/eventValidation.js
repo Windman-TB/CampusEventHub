@@ -12,7 +12,7 @@ const draftEventObjectSchema = z.object({
   dia_diem: z.string().optional().transform((v) => (v && String(v).trim() ? String(v).trim() : 'Chưa xác định')),
   phong: z.string().optional().transform((v) => (v && String(v).trim() ? String(v).trim() : 'Chưa xác định')),
   dien_gia: z.string().optional().or(z.literal('')),
-  anh_bia: z.string().optional().or(z.literal('')),
+  anh_bia: z.string().optional().nullable().or(z.literal('')),
   ngay_dien_ra: z.string().optional().transform((v) => (v && String(v).trim() ? String(v).trim() : todayDateString())),
   thoi_gian_bat_dau: z.string().optional().transform((v) => (v && String(v).trim() ? String(v).trim() : '08:00')),
   thoi_gian_ket_thuc: z.string().optional().transform((v) => (v && String(v).trim() ? String(v).trim() : '09:00')),
@@ -37,7 +37,7 @@ const fullEventObjectSchema = z.object({
     .string({ message: 'Phòng tổ chức không được để trống' })
     .min(1, 'Phòng tổ chức không được để trống'),
   dien_gia: z.string().optional().or(z.literal('')),
-  anh_bia: z.string().url('Đường dẫn ảnh bìa không hợp lệ').optional().or(z.literal('')),
+  anh_bia: z.string().optional().nullable().or(z.literal('')),
   ngay_dien_ra: z
     .string({ message: 'Ngày diễn ra không được để trống' })
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Định dạng ngày phải là YYYY-MM-DD'),
@@ -67,9 +67,28 @@ const timeOrderRefinement = {
   path: ['thoi_gian_ket_thuc'],
 };
 
+// Hàm kiểm tra thời gian bắt đầu sự kiện phải trong tương lai
+const validateFutureStartTime = (data) => {
+  if (data.ngay_dien_ra && data.thoi_gian_bat_dau) {
+    const cleanDate = String(data.ngay_dien_ra).split('T')[0];
+    const timeStr = data.thoi_gian_bat_dau.length === 5 ? `${data.thoi_gian_bat_dau}:00` : data.thoi_gian_bat_dau;
+    const startDateTime = new Date(`${cleanDate}T${timeStr}`);
+    const now = new Date();
+    return startDateTime >= now;
+  }
+  return true;
+};
+
+const futureTimeRefinement = {
+  message: 'Thời gian bắt đầu sự kiện phải diễn ra trong tương lai',
+  path: ['thoi_gian_bat_dau'],
+};
+
 // Schema đầy đủ có kiểm tra ràng buộc thời gian
 const draftEventSchema = draftEventObjectSchema;
-const fullEventSchema = fullEventObjectSchema.refine(validateTimeOrder, timeOrderRefinement);
+const fullEventSchema = fullEventObjectSchema
+  .refine(validateTimeOrder, timeOrderRefinement)
+  .refine(validateFutureStartTime, futureTimeRefinement);
 
 // 3. Schema Tạo mới
 const createEventSchema = {
@@ -89,7 +108,11 @@ const updateEventSchema = {
     if (raw.trang_thai_su_kien === 'BanNhap') {
       return draftEventObjectSchema.partial().parse(raw);
     }
-    return fullEventObjectSchema.partial().refine(validateTimeOrder, timeOrderRefinement).parse(raw);
+    return fullEventObjectSchema
+      .partial()
+      .refine(validateTimeOrder, timeOrderRefinement)
+      .refine(validateFutureStartTime, futureTimeRefinement)
+      .parse(raw);
   },
 };
 

@@ -276,6 +276,33 @@ const getNotifications = async (req, res) => {
   }
 };
 
+const uploadBanner = async (req, res) => {
+  try {
+    const { fileData, fileName, mimeType } = req.body || {};
+    if (!fileData) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng chọn hoặc cung cấp dữ liệu hình ảnh',
+      });
+    }
+
+    const publicUrl = await eventService.uploadEventBannerService(fileData, fileName, mimeType);
+
+    return res.status(200).json({
+      success: true,
+      data: { url: publicUrl },
+      message: 'Tải ảnh bìa thành công',
+    });
+  } catch (error) {
+    console.error('Lỗi uploadBanner:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'SERVER_ERROR',
+      message: error.message || 'Không thể tải ảnh lên',
+    });
+  }
+};
+
 module.exports = {
   getPublicEvents,
   getCategories,
@@ -283,6 +310,7 @@ module.exports = {
   getEventById,
   createEvent,
   updateEvent,
+  uploadBanner,
   deleteEvent,
   getNotifications,
 };

@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const QRCode = require('qrcode');
+const supabase = require('../config/supabase');
 
 let transporter = null;
 
@@ -309,6 +310,60 @@ Vui lòng mang theo mã QR để check-in.
 
   return info;
 }
+async function sendTicketEmail(
+  userId,
+  eventId,
+  qrCode
+) {
+  const { data: user, error: userError } =
+    await supabase
+      .from('tai_khoan')
+      .select('email')
+      .eq('ma_tai_khoan', userId)
+      .eq('da_xoa', false)
+      .single();
+
+  if (userError) throw userError;
+
+  const { data: event, error: eventError } =
+    await supabase
+      .from('su_kien')
+      .select(`
+        ma_su_kien,
+        ten_su_kien,
+        ngay_dien_ra,
+        thoi_gian_bat_dau,
+        thoi_gian_ket_thuc,
+        dia_diem,
+        phong
+      `)
+      .eq('ma_su_kien', eventId)
+      .eq('da_xoa', false)
+      .single();
+
+  if (eventError) throw eventError;
+
+  const { data: ticket, error: ticketError } =
+    await supabase
+      .from('dang_ky')
+      .select('ma_dang_ky')
+      .eq('ma_tai_khoan', userId)
+      .eq('ma_su_kien', eventId)
+      .eq('ma_qr_code', qrCode)
+      .eq('da_xoa', false)
+      .single();
+
+  if (ticketError) throw ticketError;
+
+  return sendBookingConfirmation(
+    user.email,
+    event,
+    {
+      ticketId: ticket.ma_dang_ky,
+      qrCode,
+    }
+  );
+}
 
 // ============================================================
 // EVENT REMINDER
@@ -417,7 +472,7 @@ async function sendEventReminder(
           <p
             style="
               margin-top: 24px;
-              color: #64748b;
+              color: #65748d;
               font-size: 13px;
             "
           >
@@ -438,5 +493,6 @@ async function sendEventReminder(
 module.exports = {
   getTransporter,
   sendBookingConfirmation,
+  sendTicketEmail,
   sendEventReminder,
 };

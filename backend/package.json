@@ -8,7 +8,9 @@
     "test": "jest --runInBand",
     "test:unit": "jest tests/unit --runInBand",
     "test:api": "jest tests/api --runInBand",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "package5:demo": "node scripts/package5-demo-data.js",
+    "package5:integration": "jest --runInBand tests/integration/package5.api.integration.test.js"
   },
   "jest": {
     "testEnvironment": "node",

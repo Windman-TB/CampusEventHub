@@ -43,9 +43,10 @@ app.use(
   })
 );
 
-// Parse JSON body
-// Giới hạn JSON tối đa 1 MB
-app.use(express.json({ limit: "1mb" }));
+// Parse JSON body & URL-encoded body
+// Hỗ trợ tải dữ liệu ảnh banner sự kiện (tối đa 10MB)
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
 // ==============================
 // Health Check
@@ -110,8 +111,8 @@ app.use("/api/tickets", ticketRoutes);
 // Dashboard (Thống kê)
 app.use("/api", dashboardRoutes);
 
-// Check-in (Điểm danh)
-app.use("/api", checkinRoutes);
+// Check-in Engine (Gói 5)
+app.use("/api/check-in", checkinRoutes);
 
 // ==============================
 // Error Handling
