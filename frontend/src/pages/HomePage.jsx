@@ -1,11 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, Calendar, MapPin, Ticket, QrCode, User, Bell, X, Check, CalendarDays, RefreshCw, Clock, Home } from 'lucide-react';
-import { TOPIC_LABELS, TOPIC_COLORS } from '../utils/constants';
 import { getPublicEvents, getNotifications } from '../services/eventService';
+import { fetchCategories } from '../services/api';
 import { BottomNav } from '../layouts/MainLayout';
-
-const TOPIC_LIST = Object.keys(TOPIC_LABELS).map(Number).filter(k => !isNaN(k));
 
 export default function HomePage() {
   const [search, setSearch] = useState('');
@@ -22,6 +20,7 @@ export default function HomePage() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [categories, setCategories] = useState([]);
   
   // Modal states
   const [modalTopic, setModalTopic] = useState('all');
@@ -134,6 +133,9 @@ export default function HomePage() {
   useEffect(() => {
     fetchEvents(search, topic, ticketStatus, date, location, 1);
     fetchNotifs();
+    fetchCategories().then(res => {
+      if(res.success) setCategories(res.data);
+    }).catch(console.error);
     // eslint-disable-next-line
   }, []);
   
@@ -198,16 +200,12 @@ export default function HomePage() {
               className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${topic === 'all' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
               Tất cả
             </button>
-            {[1,2,3,4,5].map(t => {
-              const keys = Object.keys(TOPIC_LABELS);
-              const mockKey = keys[(t-1) % keys.length]; 
-              return (
-                <button key={t} onClick={() => handleTopicChange(t)}
-                  className={`px-4 py-1.5 rounded-full text-sm font-bold transition-colors whitespace-nowrap ${topic === t ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                  {TOPIC_LABELS[mockKey]}
-                </button>
-              )
-            })}
+            {categories.map(c => (
+              <button key={c.ma_chuyen_de} onClick={() => handleTopicChange(c.ma_chuyen_de)}
+                className={`px-4 py-1.5 rounded-full text-sm font-bold transition-colors whitespace-nowrap ${topic === c.ma_chuyen_de ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                {c.ten_chuyen_de}
+              </button>
+            ))}
           </div>
 
           {/* Quick Filter Row 2: Ticket Status */}
@@ -237,9 +235,9 @@ export default function HomePage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {events.map(event => {
-                const keys = Object.keys(TOPIC_LABELS);
-                const mockKey = keys[(event.ma_chuyen_de - 1) % keys.length];
-                const bgHeaderColor = TOPIC_COLORS[mockKey] || '#4f46e5';
+                const colors = ['#4f46e5', '#0891b2', '#7c3aed', '#059669', '#d97706'];
+                const bgHeaderColor = colors[(event.ma_chuyen_de - 1) % colors.length] || '#4f46e5';
+                const topicName = event.chuyen_de?.ten_chuyen_de || 'Chuyên đề';
                 const statusBadge = getTicketStatusBadge(event);
                 const isFull = event.so_ve_con_lai <= 0;
                 
@@ -261,7 +259,7 @@ export default function HomePage() {
                       }}>
                       <div className="absolute top-3 left-3 flex gap-2">
                         <span className="px-3 py-1 bg-indigo-600 text-white text-xs font-bold rounded-full shadow-sm">
-                          {TOPIC_LABELS[mockKey] || 'Chuyên đề'}
+                          {topicName}
                         </span>
                         <span className={`px-3 py-1 text-xs font-bold rounded-full shadow-sm ${statusBadge.bg} ${statusBadge.text}`}>
                           {statusBadge.label}
@@ -353,16 +351,12 @@ export default function HomePage() {
                   className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${modalTopic === 'all' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
                   Tất cả
                 </button>
-                {[1,2,3,4,5].map(t => {
-                  const keys = Object.keys(TOPIC_LABELS);
-                  const mockKey = keys[(t-1) % keys.length]; 
-                  return (
-                    <button key={t} onClick={() => setModalTopic(t)}
-                      className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${modalTopic === t ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                      {TOPIC_LABELS[mockKey]}
-                    </button>
-                  )
-                })}
+                {categories.map(c => (
+                  <button key={c.ma_chuyen_de} onClick={() => setModalTopic(c.ma_chuyen_de)}
+                    className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${modalTopic === c.ma_chuyen_de ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                    {c.ten_chuyen_de}
+                  </button>
+                ))}
               </div>
             </div>
 

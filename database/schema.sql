@@ -93,11 +93,11 @@ CREATE TABLE su_kien (
         ON DELETE RESTRICT,
 
     mo_ta TEXT,
-    dia_diem VARCHAR(255) NOT NULL,
-    phong VARCHAR(100),
-    dien_gia VARCHAR(150),
-    anh_bia TEXT,
-
+    dia_diem VARCHAR(255) NOT NULL,                      -- Tòa nhà / Cơ sở (vd: Tòa A, UIT)
+    phong VARCHAR(100),                                  -- Phòng chi tiết (vd: Hội trường A)
+    dien_gia VARCHAR(150),                               -- Diễn giả / Khách mời
+    anh_bia TEXT,                                        -- URL ảnh bìa / banner sự kiện
+    quyen_loi TEXT,                                      -- Quyền lợi khi tham gia sự kiện
     ngay_dien_ra DATE NOT NULL,
     thoi_gian_bat_dau TIME NOT NULL,
     thoi_gian_ket_thuc TIME NOT NULL,

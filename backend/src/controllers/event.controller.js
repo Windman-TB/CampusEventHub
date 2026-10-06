@@ -94,7 +94,7 @@ const getEventById = async (req, res, next) => {
         try {
           const jwt = require('jsonwebtoken');
           const decoded = jwt.verify(token, process.env.JWT_SECRET);
-          maTaiKhoan = decoded.id || decoded.ma_tai_khoan;
+          maTaiKhoan = decoded.sub || decoded.id || decoded.ma_tai_khoan;
         } catch (e) {}
       }
     }

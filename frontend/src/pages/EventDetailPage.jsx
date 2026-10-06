@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Calendar, MapPin, Users, Check } from 'lucide-react';
-import { getEventStatusLabel, TOPIC_LABELS, TOPIC_COLORS } from '../utils/constants';
 import { getEventById } from '../services/eventService';
 
 // Tạo mã vé ngẫu nhiên dạng TKT-YYYY-XXXXXX
@@ -40,9 +39,9 @@ export default function EventDetailPage() {
   if (loading) return <div className="p-8 text-center text-slate-500 font-medium">Đang tải dữ liệu...</div>;
   if (!event) return <div className="p-8 text-center font-medium">Không tìm thấy sự kiện</div>;
 
-  const keys = Object.keys(TOPIC_LABELS);
-  const mockKey = keys[(event.ma_chuyen_de - 1) % keys.length];
-  const topicColor = TOPIC_COLORS[mockKey] || '#4f46e5';
+  const colors = ['#4f46e5', '#0891b2', '#7c3aed', '#059669', '#d97706'];
+  const topicColor = colors[(event.ma_chuyen_de - 1) % colors.length] || '#4f46e5';
+  const topicName = event.chuyen_de?.ten_chuyen_de || 'Chuyên đề';
   
   const isFull = event.so_ve_con_lai <= 0;
   const pct = event.so_luong_toi_da > 0 ? Math.round((event.so_ve_da_dat / event.so_luong_toi_da) * 100) : 100;
@@ -60,14 +59,14 @@ export default function EventDetailPage() {
   const dayName = dateObj.toLocaleDateString('vi-VN', { weekday: 'long' });
   const dateStr = dateObj.toLocaleDateString('vi-VN');
   
-  const storedUser = localStorage.getItem('user');
-  const user = storedUser ? JSON.parse(storedUser) : {};
-  
+  // Lấy dữ liệu sinh viên từ local storage
+  const userStr = localStorage.getItem('user');
+  const user = userStr ? JSON.parse(userStr) : {};
   const studentInfo = {
-    mssv: user.mssv || 'Chưa cập nhật',
-    name: user.ho_ten || user.name || 'Chưa cập nhật',
-    email: user.email || 'Chưa cập nhật',
-    faculty: user.khoa || 'Công nghệ Thông tin'
+    mssv: user.mssv || 'Không có MSSV',
+    name: user.ho_ten || 'Người dùng ẩn danh',
+    email: user.email || 'N/A',
+    faculty: user.khoa || 'Chưa cập nhật'
   };
 
   return (
@@ -89,7 +88,7 @@ export default function EventDetailPage() {
         <div className="flex flex-col gap-3">
           <div className="flex gap-2">
             <span className="px-3 py-1 bg-indigo-600 text-white rounded-full text-[11px] font-bold shadow-sm uppercase tracking-wide">
-              {TOPIC_LABELS[mockKey] || 'Chuyên đề'}
+              {topicName}
             </span>
             <span className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-sm uppercase tracking-wide ${statusBadge.bg}`}>
               {statusBadge.label}
@@ -136,7 +135,7 @@ export default function EventDetailPage() {
 
       {/* 4. TABS SECTION */}
       <div className="flex px-5 border-b border-slate-100 overflow-x-auto no-scrollbar gap-8">
-        {['Giới thiệu', 'Lịch trình', 'Diễn giả', 'Quyền lợi'].map(t => (
+        {['Giới thiệu', 'Diễn giả', 'Quyền lợi'].map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={`py-4 text-sm font-bold whitespace-nowrap border-b-[3px] transition-colors ${tab === t ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
             {t}
@@ -152,35 +151,14 @@ export default function EventDetailPage() {
           </div>
         )}
         
-        {tab === 'Lịch trình' && (
-          <div className="mb-8 flex flex-col gap-4">
-            <div className="flex items-stretch">
-              <div className="w-14 text-[13px] font-semibold text-indigo-600 shrink-0 pt-0.5">18:00</div>
-              <div className="pl-4 border-l-2 border-slate-200 text-[13px] font-medium text-slate-700 pb-2">Khai mạc & Nhạc nền</div>
-            </div>
-            <div className="flex items-stretch">
-              <div className="w-14 text-[13px] font-semibold text-indigo-600 shrink-0 pt-0.5">18:30</div>
-              <div className="pl-4 border-l-2 border-slate-200 text-[13px] font-medium text-slate-700 pb-2">Biểu diễn các ban nhạc sinh viên</div>
-            </div>
-            <div className="flex items-stretch">
-              <div className="w-14 text-[13px] font-semibold text-indigo-600 shrink-0 pt-0.5">20:00</div>
-              <div className="pl-4 border-l-2 border-slate-200 text-[13px] font-medium text-slate-700 pb-2">Acoustic Night – Cùng hát</div>
-            </div>
-            <div className="flex items-stretch">
-              <div className="w-14 text-[13px] font-semibold text-indigo-600 shrink-0 pt-0.5">21:00</div>
-              <div className="pl-4 border-l-2 border-transparent text-[13px] font-medium text-slate-700">Kết thúc</div>
-            </div>
-          </div>
-        )}
-        
         {tab === 'Diễn giả' && (
           <div className="mb-8">
             <div className="bg-slate-50 rounded-xl p-4 flex items-center gap-4">
               <div className="w-11 h-11 bg-indigo-600 text-white rounded-full flex items-center justify-center text-lg font-bold">
-                {event.dien_gia ? event.dien_gia.charAt(0) : 'C'}
+                {event.dien_gia ? event.dien_gia.charAt(0) : (event.to_chuc ? event.to_chuc.charAt(0) : 'C')}
               </div>
               <div>
-                <h4 className="font-bold text-[13px] text-slate-800">{event.dien_gia || 'CLB Âm nhạc & Các ban nhạc sinh viên'}</h4>
+                <h4 className="font-bold text-[13px] text-slate-800">{event.dien_gia || event.to_chuc || 'Đang cập nhật'}</h4>
                 <p className="text-xs text-slate-500 mt-0.5">{event.to_chuc || 'Đơn vị tổ chức'}</p>
               </div>
             </div>
@@ -189,17 +167,15 @@ export default function EventDetailPage() {
         
         {tab === 'Quyền lợi' && (
           <div className="mb-8 flex flex-col gap-3">
-            {[
-              'Cộng điểm rèn luyện',
-              'Giao lưu nghệ thuật',
-              'Đồ uống miễn phí'
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                  <Check size={12} className="text-emerald-600 stroke-[4]" />
+            {(event.quyen_loi ? event.quyen_loi.split('\n') : ['Đang cập nhật']).map((item, i) => (
+              item.trim() && (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                    <Check size={12} className="text-emerald-600 stroke-[4]" />
+                  </div>
+                  <span className="text-[13px] font-medium text-slate-600">{item.trim()}</span>
                 </div>
-                <span className="text-[13px] font-medium text-slate-600">{item}</span>
-              </div>
+              )
             ))}
           </div>
         )}
@@ -245,7 +221,14 @@ export default function EventDetailPage() {
               setRegistering(false);
               setRegistered(true);
               navigate('/ticket-confirm', {
-                state: { event: { id: event.ma_su_kien, title: event.ten_su_kien } }
+                state: {
+                  ticketId: generateTicketId(),
+                  eventId: event.ma_su_kien,
+                  event: { ...event, id: event.ma_su_kien, title: event.ten_su_kien },
+                  studentName: studentInfo.name,
+                  studentId: studentInfo.mssv,
+                  faculty: studentInfo.faculty,
+                },
               });
             }, 1000);
           }}

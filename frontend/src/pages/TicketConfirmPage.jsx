@@ -34,8 +34,10 @@ const TicketConfirmPage = () => {
         setErrorMsg('');
         
         try {
-            // Sử dụng apiFetch thay cho fetch thủ công
-            const data = await apiFetch('/api/tickets/book', {
+            const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            
+            const response = await fetch(`${apiUrl}/api/tickets/book`, {
                 method: 'POST',
                 body: JSON.stringify({ eventId: event.id })
             });
