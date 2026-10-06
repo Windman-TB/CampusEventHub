@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { useLocation, Link } from 'react-router-dom';
+import { useLocation, Link, useNavigate } from 'react-router-dom';
+import { apiFetch } from '../services/api';
 
 const TicketConfirmPage = () => {
     const location = useLocation();
+    const navigate = useNavigate();
     const event = location.state?.event;
 
     const [isLoading, setIsLoading] = useState(false);
@@ -37,14 +39,8 @@ const TicketConfirmPage = () => {
             
             const response = await fetch(`${apiUrl}/api/tickets/book`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
                 body: JSON.stringify({ eventId: event.id })
             });
-
-            const data = await response.json();
 
             if (!data.success) {
                 throw new Error(data.message || data.error || 'Lỗi đặt vé');
@@ -108,7 +104,7 @@ const TicketConfirmPage = () => {
                     
                     <button 
                         className="mt-6 px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                        onClick={() => window.location.reload()}
+                        onClick={() => navigate('/home')}
                     >
                         Đóng
                     </button>

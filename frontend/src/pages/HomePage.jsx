@@ -31,6 +31,11 @@ export default function HomePage() {
   const navigate = useNavigate();
   const searchTimeout = useRef(null);
 
+  const storedUser = localStorage.getItem('user');
+  const displayUser = storedUser ? JSON.parse(storedUser) : null;
+  const userName = displayUser?.ho_ten || displayUser?.name || 'Khách';
+  const userInitials = userName.split(' ').map(n => n[0]).join('').slice(-2).toUpperCase();
+
   const fetchEvents = async (querySearch, queryTopic, queryTicket, queryDate, queryLocation, queryPage) => {
     setLoading(true);
     try {
@@ -150,7 +155,7 @@ export default function HomePage() {
           {/* Top Bar */}
           <div className="flex items-center justify-between px-4 py-4">
             <div>
-              <p className="text-sm font-medium text-slate-500 mb-0.5">Xin chào, Duy Anh 👋</p>
+              <p className="text-sm font-medium text-slate-500 mb-0.5">Xin chào, {userName} 👋</p>
               <h1 className="font-extrabold text-xl text-slate-900 tracking-tight">
                 Khám phá sự kiện
               </h1>
@@ -161,7 +166,7 @@ export default function HomePage() {
                 {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>}
               </div>
               <div onClick={() => navigate('/profile')} className="w-9 h-9 bg-indigo-600 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm cursor-pointer">
-                DA
+                {userInitials || '👤'}
               </div>
             </div>
           </div>

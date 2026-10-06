@@ -1,4 +1,5 @@
 const authService = require("../services/auth.service");
+const otpService = require("../services/otp.service");
 
 // ==============================
 // REGISTER
@@ -20,7 +21,9 @@ async function register(req, res) {
 
     return res.status(error.statusCode || 500).json({
       success: false,
-      message: error.message || "Đăng ký tài khoản thất bại",
+      message:
+        error.message ||
+        "Đăng ký tài khoản thất bại",
       error: error.code
         ? {
             code: error.code,
@@ -36,7 +39,8 @@ async function register(req, res) {
 
 async function login(req, res) {
   try {
-    const result = await authService.loginUser(req.body);
+    const result =
+      await authService.loginUser(req.body);
 
     return res.status(200).json({
       success: true,
@@ -48,7 +52,9 @@ async function login(req, res) {
 
     return res.status(error.statusCode || 500).json({
       success: false,
-      message: error.message || "Đăng nhập thất bại",
+      message:
+        error.message ||
+        "Đăng nhập thất bại",
       error: error.code
         ? {
             code: error.code,
@@ -58,27 +64,143 @@ async function login(req, res) {
   }
 }
 
-async function demoLogin(req, res) {
+// ==============================
+// DEMO LOGIN
+// ==============================
+
+// ========================================
+// REQUEST PASSWORD RESET OTP
+// ========================================
+
+async function requestPasswordResetOtp(
+  req,
+  res
+) {
   try {
-    const { role } = req.body || {};
-    const result = await authService.demoLoginUser(role || 'organizer');
+    await otpService.requestPasswordResetOtp(
+      req.body
+    );
+
+    // Cố ý trả cùng response dù email
+    // có tồn tại hay không để tránh
+    // email enumeration.
+    return res.status(200).json({
+      success: true,
+      message:
+        "Nếu email tồn tại trong hệ thống, mã OTP đã được gửi",
+    });
+  } catch (error) {
+    console.error(
+      "Request OTP error:",
+      error
+    );
+
+    return res
+      .status(error.statusCode || 500)
+      .json({
+        success: false,
+        message:
+          error.message ||
+          "Không thể gửi OTP",
+        error: error.code
+          ? {
+              code: error.code,
+            }
+          : null,
+      });
+  }
+}
+
+// ========================================
+// VERIFY PASSWORD RESET OTP
+// ========================================
+
+async function verifyPasswordResetOtp(
+  req,
+  res
+) {
+  try {
+    const result =
+      await otpService.verifyPasswordResetOtp(
+        req.body
+      );
 
     return res.status(200).json({
       success: true,
-      message: 'Đăng nhập Demo thành công',
+      message:
+        "Xác thực OTP thành công",
       data: result,
     });
   } catch (error) {
-    console.error('Demo login error:', error);
-    return res.status(error.statusCode || 500).json({
-      success: false,
-      message: error.message || 'Đăng nhập Demo thất bại',
-    });
+    console.error(
+      "Verify OTP error:",
+      error
+    );
+
+    return res
+      .status(error.statusCode || 500)
+      .json({
+        success: false,
+        message:
+          error.message ||
+          "Xác thực OTP thất bại",
+        error: error.code
+          ? {
+              code: error.code,
+            }
+          : null,
+      });
   }
 }
+
+// ========================================
+// RESET PASSWORD
+// ========================================
+
+async function resetPassword(
+  req,
+  res
+) {
+  try {
+    await otpService.resetPassword(
+      req.body
+    );
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Đặt lại mật khẩu thành công",
+    });
+  } catch (error) {
+    console.error(
+      "Reset password error:",
+      error
+    );
+
+    return res
+      .status(error.statusCode || 500)
+      .json({
+        success: false,
+        message:
+          error.message ||
+          "Đặt lại mật khẩu thất bại",
+        error: error.code
+          ? {
+              code: error.code,
+            }
+          : null,
+      });
+  }
+}
+
+// ==============================
+// EXPORTS
+// ==============================
 
 module.exports = {
   register,
   login,
-  demoLogin,
+  requestPasswordResetOtp,
+  verifyPasswordResetOtp,
+  resetPassword,
 };

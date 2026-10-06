@@ -20,6 +20,13 @@ router.get(
 );
 
 router.post(
+  '/events/upload-banner',
+  authenticate,
+  authorizeRoles('ToChuc'),
+  eventCtrl.uploadBanner
+);
+
+router.post(
   '/events',
   authenticate,
   authorizeRoles('ToChuc'),

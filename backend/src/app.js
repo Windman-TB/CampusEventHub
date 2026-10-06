@@ -2,18 +2,25 @@ require("dotenv").config({ quiet: true });
 
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 
 const supabase = require("./config/supabase");
 
+// ==============================
 // Routes
+// ==============================
 const eventRoutes = require("./routes/event.routes.js");
 const authRoutes = require("./routes/auth.routes");
 const profileRoutes = require("./routes/profile.routes");
 const participantRoutes = require("./routes/participants.routes.js");
 const staffRoutes = require("./routes/staff.routes.js");
 const ticketRoutes = require("./routes/ticket.routes.js");
+const dashboardRoutes = require("./routes/dashboard.routes.js");
+const checkinRoutes = require("./routes/checkin.routes.js");
 
+// ==============================
 // Error handlers
+// ==============================
 const {
   notFoundHandler,
   errorHandler,
@@ -22,22 +29,28 @@ const {
 const app = express();
 
 // ==============================
-// Middleware
+// Global Middleware
 // ==============================
 
+// Security HTTP headers
+app.use(helmet());
+
+// CORS
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: ["http://localhost:5173", "http://localhost:5174", process.env.FRONTEND_URL],
     credentials: true,
   })
 );
 
-app.use(express.json());
+// Parse JSON body & URL-encoded body
+// Hỗ trợ tải dữ liệu ảnh banner sự kiện (tối đa 10MB)
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
 // ==============================
 // Health Check
 // ==============================
-
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
@@ -48,7 +61,6 @@ app.get("/api/health", (req, res) => {
 // ==============================
 // Database Health Check
 // ==============================
-
 app.get("/api/health/db", async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -96,11 +108,16 @@ app.use("/api", staffRoutes);
 // Ticket Booking (Gói 4)
 app.use("/api/tickets", ticketRoutes);
 
+// Dashboard (Thống kê)
+app.use("/api", dashboardRoutes);
+
+// Check-in Engine (Gói 5)
+app.use("/api/check-in", checkinRoutes);
+
 // ==============================
 // Error Handling
 // PHẢI LUÔN ĐẶT CUỐI CÙNG
 // ==============================
-
 app.use(notFoundHandler);
 app.use(errorHandler);
 

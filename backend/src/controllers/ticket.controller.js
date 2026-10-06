@@ -1,5 +1,25 @@
 const ticketService = require('../services/ticket.service');
 
+function sendTicketError(res, error) {
+    const statusByCode = {
+        VALIDATION_ERROR: 400,
+        UNAUTHORIZED: 401,
+        FORBIDDEN: 403,
+        INVALID_TICKET: 404,
+        CANCELLATION_NOT_ALLOWED: 409,
+        TICKET_ALREADY_CANCELLED: 409,
+        INTERNAL_ERROR: 500
+    };
+
+    return res.status(statusByCode[error.code] || 400).json({
+        success: false,
+        message: error.message || 'Có lỗi xảy ra',
+        error: {
+            code: error.code || 'TICKET_ERROR'
+        }
+    });
+}
+
 const bookTicket = async (req, res) => {
     try {
         const { eventId } = req.body;
@@ -45,10 +65,11 @@ const getMyTickets = async (req, res) => {
         
         return res.status(200).json({
             success: true,
+            message: 'Danh sách vé của tôi',
             data: tickets
         });
     } catch (error) {
-        return res.status(400).json({ success: false, message: error.message });
+        return sendTicketError(res, error);
     }
 };
 
@@ -64,7 +85,7 @@ const cancelTicket = async (req, res) => {
             message: 'Hủy vé thành công'
         });
     } catch (error) {
-        return res.status(400).json({ success: false, message: error.message });
+        return sendTicketError(res, error);
     }
 };
 
