@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { useLocation, Link } from 'react-router-dom';
+import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { apiFetch } from '../services/api';
 
 const TicketConfirmPage = () => {
     const location = useLocation();
+    const navigate = useNavigate();
     const event = location.state?.event;
 
     const [isLoading, setIsLoading] = useState(false);
@@ -101,7 +102,7 @@ const TicketConfirmPage = () => {
                     
                     <button 
                         className="mt-6 px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                        onClick={() => window.location.reload()}
+                        onClick={() => navigate('/home')}
                     >
                         Đóng
                     </button>
