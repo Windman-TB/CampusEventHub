@@ -67,12 +67,15 @@ export default function CheckInPage() {
     try {
       const response = await fetchAssignedEvents();
       const assignedEvents = response.data || [];
-      setEvents(assignedEvents);
+      const todayStr = new Date().toLocaleDateString('en-CA');
+      const todayEvents = assignedEvents.filter(e => e.ngay_dien_ra === todayStr);
+
+      setEvents(todayEvents);
       setSelectedEventId((current) => {
-        if (assignedEvents.some((event) => String(event.ma_su_kien) === String(current))) {
+        if (todayEvents.some((event) => String(event.ma_su_kien) === String(current))) {
           return current;
         }
-        return assignedEvents[0]?.ma_su_kien ? String(assignedEvents[0].ma_su_kien) : "";
+        return todayEvents[0]?.ma_su_kien ? String(todayEvents[0].ma_su_kien) : "";
       });
     } catch (err) {
       setError(err.message || "Không tải được danh sách sự kiện");

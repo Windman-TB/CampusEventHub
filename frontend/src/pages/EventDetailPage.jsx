@@ -14,7 +14,7 @@ export default function EventDetailPage() {
   const navigate = useNavigate();
   const [tab, setTab] = useState('Giới thiệu');
   const [registering, setRegistering] = useState(false);
-  
+
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [registered, setRegistered] = useState(false);
@@ -42,7 +42,7 @@ export default function EventDetailPage() {
   const colors = ['#4f46e5', '#0891b2', '#7c3aed', '#059669', '#d97706'];
   const topicColor = colors[(event.ma_chuyen_de - 1) % colors.length] || '#4f46e5';
   const topicName = event.chuyen_de?.ten_chuyen_de || 'Chuyên đề';
-  
+
   const isFull = event.so_ve_con_lai <= 0;
   const pct = event.so_luong_toi_da > 0 ? Math.round((event.so_ve_da_dat / event.so_luong_toi_da) * 100) : 100;
 
@@ -50,7 +50,7 @@ export default function EventDetailPage() {
   const getTicketStatusBadge = () => {
     if (event.so_ve_con_lai <= 0) return { label: 'Hết chỗ', bg: 'bg-rose-500/80 text-white' };
     if (event.so_ve_con_lai <= event.so_luong_toi_da * 0.2) return { label: 'Sắp hết', bg: 'bg-amber-500/80 text-white' };
-    return { label: 'Còn chỗ', bg: 'bg-white/20 text-white backdrop-blur-sm' }; 
+    return { label: 'Còn chỗ', bg: 'bg-white/20 text-white backdrop-blur-sm' };
   };
   const statusBadge = getTicketStatusBadge();
 
@@ -58,7 +58,11 @@ export default function EventDetailPage() {
   const dateObj = new Date(event.ngay_dien_ra);
   const dayName = dateObj.toLocaleDateString('vi-VN', { weekday: 'long' });
   const dateStr = dateObj.toLocaleDateString('vi-VN');
-  
+
+  const eventDateStr = dateObj.toLocaleDateString('en-CA');
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const isToday = eventDateStr === todayStr;
+
   // Lấy dữ liệu sinh viên từ local storage
   const userStr = localStorage.getItem('user');
   const user = userStr ? JSON.parse(userStr) : {};
@@ -73,7 +77,7 @@ export default function EventDetailPage() {
     <div className="flex flex-col min-h-screen bg-white pb-24 font-sans">
       {/* 1. TOP BANNER */}
       <div className="relative h-72 flex flex-col justify-end p-5"
-        style={{ 
+        style={{
           backgroundImage: event.anh_bia ? `linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.8)), url('${event.anh_bia}')` : `linear-gradient(135deg, #4b5563, #1f2937)`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
@@ -124,12 +128,12 @@ export default function EventDetailPage() {
           <span className="font-extrabold text-[13px] text-emerald-600">{pct}%</span>
         </div>
         <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-           <div className="h-full rounded-full transition-all duration-500 ease-out" 
-             style={{ 
-               width: `${Math.min(pct, 100)}%`, 
-               background: isFull ? '#ef4444' : '#4f46e5' 
-             }} 
-           />
+          <div className="h-full rounded-full transition-all duration-500 ease-out"
+            style={{
+              width: `${Math.min(pct, 100)}%`,
+              background: isFull ? '#ef4444' : '#4f46e5'
+            }}
+          />
         </div>
       </div>
 
@@ -150,7 +154,7 @@ export default function EventDetailPage() {
             {event.mo_ta || 'Đêm nhạc acoustic do sinh viên biểu diễn với các tiết mục đa dạng: nhạc trẻ, dân ca, indie. Không gian lãng mạn dưới bầu trời đêm trong khuôn viên trường.'}
           </div>
         )}
-        
+
         {tab === 'Diễn giả' && (
           <div className="mb-8">
             <div className="bg-slate-50 rounded-xl p-4 flex items-center gap-4">
@@ -164,7 +168,7 @@ export default function EventDetailPage() {
             </div>
           </div>
         )}
-        
+
         {tab === 'Quyền lợi' && (
           <div className="mb-8 flex flex-col gap-3">
             {(event.quyen_loi ? event.quyen_loi.split('\n') : ['Đang cập nhật']).map((item, i) => (
@@ -183,10 +187,10 @@ export default function EventDetailPage() {
         {/* Thông tin sinh viên Form */}
         <h3 className="font-extrabold text-[13px] text-slate-900 mb-4 tracking-wide">Thông tin đăng ký</h3>
         <div className="bg-emerald-50 text-emerald-700 text-xs font-bold px-4 py-3.5 rounded-xl mb-6 flex items-center gap-2.5 border border-emerald-100">
-          <Check size={16} className="text-emerald-600 stroke-[3]" /> 
+          <Check size={16} className="text-emerald-600 stroke-[3]" />
           Thông tin được tự động điền từ hồ sơ cá nhân
         </div>
-        
+
         <div className="space-y-4">
           <div className="flex justify-between items-center text-[13px] border-b border-slate-100 pb-3">
             <span className="text-slate-500 font-medium">MSSV</span>
@@ -209,40 +213,48 @@ export default function EventDetailPage() {
 
       {/* 6. FIXED BOTTOM CTA */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 z-20 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-        <button
-          onClick={() => {
-            if (registered) {
-              navigate('/tickets');
-              return;
-            }
-            if (isFull) return;
-            setRegistering(true);
-            setTimeout(() => {
-              setRegistering(false);
-              setRegistered(true);
-              navigate('/ticket-confirm', {
-                state: {
-                  ticketId: generateTicketId(),
-                  eventId: event.ma_su_kien,
-                  event: { ...event, id: event.ma_su_kien, title: event.ten_su_kien },
-                  studentName: studentInfo.name,
-                  studentId: studentInfo.mssv,
-                  faculty: studentInfo.faculty,
-                },
-              });
-            }, 1000);
-          }}
-          disabled={registering || (isFull && !registered)}
-          className={`w-full py-3.5 rounded-xl font-bold transition-all shadow-sm ${
-            registered 
-              ? 'bg-indigo-50 text-indigo-700' 
-              : isFull 
-                ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
-                : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md'
-          }`}
-        >
-          {registering ? 'Đang xử lý...' : (registered ? 'Xem vé của tôi' : (isFull ? 'Hết chỗ' : 'Đăng ký ngay'))}
-        </button>
+        {(event.canCheckin && isToday) ? (
+          <button
+            onClick={() => navigate('/checkin')}
+            className="w-full py-3.5 rounded-xl font-bold transition-all shadow-sm bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-md"
+          >
+            Điểm danh sự kiện
+          </button>
+        ) : (
+          <button
+            onClick={() => {
+              if (registered) {
+                navigate('/tickets');
+                return;
+              }
+              if (isFull) return;
+              setRegistering(true);
+              setTimeout(() => {
+                setRegistering(false);
+                setRegistered(true);
+                navigate('/ticket-confirm', {
+                  state: {
+                    ticketId: generateTicketId(),
+                    eventId: event.ma_su_kien,
+                    event: { ...event, id: event.ma_su_kien, title: event.ten_su_kien },
+                    studentName: studentInfo.name,
+                    studentId: studentInfo.mssv,
+                    faculty: studentInfo.faculty,
+                  },
+                });
+              }, 1000);
+            }}
+            disabled={registering || (isFull && !registered)}
+            className={`w-full py-3.5 rounded-xl font-bold transition-all shadow-sm ${registered
+                ? 'bg-indigo-50 text-indigo-700'
+                : isFull
+                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                  : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md'
+              }`}
+          >
+            {registering ? 'Đang xử lý...' : (registered ? 'Xem vé của tôi' : (isFull ? 'Hết chỗ' : 'Đăng ký ngay'))}
+          </button>
+        )}
       </div>
     </div>
   );
