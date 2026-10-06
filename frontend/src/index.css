@@ -1,6 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import 'tailwindcss';
 
 @theme {
@@ -16,8 +14,8 @@
   --color-danger: #dc2626;
   --color-warning: #d97706;
 
-  --font-display: 'Outfit', sans-serif;
-  --font-body: 'Inter', sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Be Vietnam Pro', sans-serif;
+  --font-body: 'Be Vietnam Pro', 'Inter', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
 
