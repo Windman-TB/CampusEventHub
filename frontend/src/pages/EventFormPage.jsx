@@ -198,6 +198,7 @@ export default function EventFormPage() {
     capacity: 100,
     speaker: '',
     description: '',
+    quyen_loi: '',
     bannerUrl: '',
   });
 
@@ -242,6 +243,7 @@ export default function EventFormPage() {
             capacity: ev.so_luong_toi_da || 100,
             speaker: ev.dien_gia || '',
             description: ev.mo_ta || '',
+            quyen_loi: ev.quyen_loi || '',
             bannerUrl: ev.anh_bia || '',
           });
         }
@@ -290,6 +292,7 @@ export default function EventFormPage() {
       dia_diem: formData.location || undefined,
       phong: formData.room || undefined,
       dien_gia: formData.speaker || undefined,
+      quyen_loi: formData.quyen_loi || undefined,
       anh_bia: formData.bannerUrl || undefined,
       ngay_dien_ra: formData.date || undefined,
       thoi_gian_bat_dau: formData.startTime || undefined,
@@ -422,7 +425,14 @@ export default function EventFormPage() {
                   type2="textarea"
                   value={formData.description}
                   onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                  placeholder="Nội dung, mục đích và quyền lợi sinh viên tham gia..."
+                  placeholder="Nội dung, mục đích..."
+                />
+                <Field
+                  label="Quyền lợi sinh viên"
+                  type2="textarea"
+                  value={formData.quyen_loi}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, quyen_loi: e.target.value }))}
+                  placeholder="Các quyền lợi khi tham gia sự kiện (Cộng điểm rèn luyện, Giao lưu...)"
                 />
               </div>
             </div>

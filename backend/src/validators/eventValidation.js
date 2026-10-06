@@ -13,6 +13,7 @@ const draftEventObjectSchema = z.object({
   phong: z.string().optional().transform((v) => (v && String(v).trim() ? String(v).trim() : 'Chưa xác định')),
   dien_gia: z.string().optional().or(z.literal('')),
   anh_bia: z.string().optional().or(z.literal('')),
+  quyen_loi: z.string().optional().or(z.literal('')),
   ngay_dien_ra: z.string().optional().transform((v) => (v && String(v).trim() ? String(v).trim() : todayDateString())),
   thoi_gian_bat_dau: z.string().optional().transform((v) => (v && String(v).trim() ? String(v).trim() : '08:00')),
   thoi_gian_ket_thuc: z.string().optional().transform((v) => (v && String(v).trim() ? String(v).trim() : '09:00')),
@@ -38,6 +39,7 @@ const fullEventObjectSchema = z.object({
     .min(1, 'Phòng tổ chức không được để trống'),
   dien_gia: z.string().optional().or(z.literal('')),
   anh_bia: z.string().url('Đường dẫn ảnh bìa không hợp lệ').optional().or(z.literal('')),
+  quyen_loi: z.string().optional().or(z.literal('')),
   ngay_dien_ra: z
     .string({ message: 'Ngày diễn ra không được để trống' })
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Định dạng ngày phải là YYYY-MM-DD'),
