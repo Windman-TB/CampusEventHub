@@ -1,16 +1,39 @@
 const express = require('express');
-const router = express.Router();
-const dashboardCtrl = require('../controllers/dashboard.controller');
-const authenticate = require('../middlewares/auth.middleware');
-const authorizeRoles = require('../middlewares/role.middleware');
 
-// GET /api/organizer/dashboard-stats
-// Trả về số liệu thống kê cho Dashboard của Ban Tổ Chức
+const dashboardCtrl =
+  require('../controllers/dashboard.controller.js');
+
+const authenticate =
+  require('../middlewares/auth.middleware.js');
+
+const authorizeRoles =
+  require('../middlewares/role.middleware.js');
+
+const router = express.Router();
+
+
+// ==========================================
+// DASHBOARD OVERVIEW
+// ==========================================
+
 router.get(
-  '/organizer/dashboard-stats',
+  '/organizer/dashboard/overview',
   authenticate,
   authorizeRoles('ToChuc'),
-  dashboardCtrl.getDashboardStats
+  dashboardCtrl.getOverview
 );
+
+
+// ==========================================
+// EVENT ANALYTICS
+// ==========================================
+
+router.get(
+  '/organizer/events/:id/analytics',
+  authenticate,
+  authorizeRoles('ToChuc'),
+  dashboardCtrl.getEventAnalytics
+);
+
 
 module.exports = router;
