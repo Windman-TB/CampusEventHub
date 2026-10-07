@@ -1,6 +1,7 @@
 import { Html5Qrcode } from "html5-qrcode";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Camera, CheckCircle, AlertCircle, XCircle } from "lucide-react";
 
 import { BottomNav } from "../layouts/MainLayout";
 import {
@@ -59,6 +60,7 @@ export default function CheckInPage() {
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraStarting, setCameraStarting] = useState(false);
   const [cameraError, setCameraError] = useState("");
+  const [scanSubmitting, setScanSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
 
@@ -78,12 +80,18 @@ export default function CheckInPage() {
     try {
       const response = await fetchAssignedEvents();
       const assignedEvents = response.data || [];
-      setEvents(assignedEvents);
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      console.log("All assigned events:", assignedEvents, "Today:", todayStr);
+      const todayEvents = assignedEvents.filter(e => e.ngay_dien_ra === todayStr);
+      console.log("Filtered events:", todayEvents);
+
+      setEvents(todayEvents);
       setSelectedEventId((current) => {
-        if (assignedEvents.some((event) => String(event.ma_su_kien) === String(current))) {
+        if (todayEvents.some((event) => String(event.ma_su_kien) === String(current))) {
           return current;
         }
-        return assignedEvents[0]?.ma_su_kien ? String(assignedEvents[0].ma_su_kien) : "";
+        return todayEvents[0]?.ma_su_kien ? String(todayEvents[0].ma_su_kien) : "";
       });
     } catch (err) {
       setError(err.message || "Không tải được danh sách sự kiện");
@@ -177,16 +185,14 @@ export default function CheckInPage() {
       cameraRef.current = instance;
 
       await instance.start(
-        {
-          deviceId: {
-            exact: preferredCamera.id,
-          },
-        },
+        preferredCamera.id,
         {
           fps: 10,
-          aspectRatio: 16 / 9,
           disableFlip: false,
-          qrbox: getResponsiveQrbox,
+          qrbox: {
+            width: 320,
+            height: 320,
+          },
         },
         (decodedText) => {
           handleScan(decodedText, {
@@ -241,6 +247,7 @@ export default function CheckInPage() {
       time: now,
     };
     inFlightRef.current = true;
+    setScanSubmitting(true);
     setManualCode("");
     setResult(null);
 
@@ -278,6 +285,7 @@ export default function CheckInPage() {
       });
     } finally {
       inFlightRef.current = false;
+      setScanSubmitting(false);
     }
   }
 
@@ -374,76 +382,114 @@ export default function CheckInPage() {
       )}
 
       {tab === "scan" ? (
-        <div className="px-4 space-y-3">
-          <div className="rounded-3xl overflow-hidden relative bg-slate-950 border border-white/10">
+        <div className="px-4 space-y-4">
+          <div className="mx-auto w-full max-w-2xl rounded-3xl overflow-hidden relative bg-[#090912] border border-white/10">
             <div
               id={CAMERA_REGION_ID}
-              className="h-[clamp(280px,56vw,560px)] lg:h-[clamp(360px,42vw,640px)] [&_video]:!w-full [&_video]:!h-full [&_video]:!object-cover [&_canvas]:!hidden"
+              className="w-full aspect-square md:aspect-video [&_video]:!w-full [&_video]:!h-full [&_video]:!object-cover [&_canvas]:!hidden"
             />
             {!cameraActive && (
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-slate-500">
-                {cameraStarting ? "Đang mở camera..." : "Camera chưa bật"}
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-4 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-indigo-500/15 text-indigo-400">
+                  <Camera size={24} strokeWidth={1.8} aria-hidden="true" />
+                </div>
+                <button
+                  type="button"
+                  onClick={startCamera}
+                  className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#090912] disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={!selectedEventId || cameraStarting}
+                >
+                  {cameraStarting ? "Đang mở camera..." : "Mở camera"}
+                </button>
+                <p className="text-xs text-slate-500">
+                  {cameraError ||
+                    (selectedEventId
+                      ? "Sử dụng camera sau để quét mã QR"
+                      : "Vui lòng chọn sự kiện để mở camera")}
+                </p>
               </div>
             )}
             {cameraActive && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <div className="h-[clamp(180px,42vmin,380px)] w-[clamp(180px,42vmin,380px)] rounded-3xl border-2 border-white/70 shadow-[0_0_0_999px_rgba(2,6,23,0.35)]" />
+                <div className="h-[320px] w-[320px] max-w-[80vw] rounded-3xl border-2 border-white/70 shadow-[0_0_0_999px_rgba(2,6,23,0.35)]" />
               </div>
             )}
           </div>
 
-          {cameraError && (
-            <p className="text-xs text-amber-200">
-              {cameraError}
-            </p>
+          {cameraActive && (
+            <button
+              type="button"
+              onClick={stopCamera}
+              className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
+            >
+              Tắt camera
+            </button>
           )}
 
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={cameraActive ? stopCamera : startCamera}
-              className="flex-1 py-3 rounded-2xl bg-indigo-600 text-white text-sm font-semibold disabled:opacity-50"
-              disabled={!selectedEventId}
+          <form
+            className="space-y-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleScan();
+            }}
+          >
+            <label
+              htmlFor="manual-ticket-code"
+              className="block text-xs font-medium text-slate-400"
             >
-              {cameraActive ? "Tắt camera" : cameraStarting ? "Đang mở..." : "Bật camera"}
-            </button>
-          </div>
+              Nhập mã vé thủ công
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="manual-ticket-code"
+                value={manualCode}
+                onChange={(event) => setManualCode(event.target.value)}
+                placeholder="VD: TKT-2026-003412"
+                autoComplete="off"
+                className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/30"
+              />
 
-          <div className="flex gap-2">
-            <input
-              value={manualCode}
-              onChange={(event) => setManualCode(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  handleScan();
-                }
-              }}
-              placeholder="Nhập mã QR thủ công"
-              className="flex-1 px-4 py-3 rounded-2xl bg-white/10 text-white text-sm outline-none border border-white/10 placeholder:text-slate-600"
-            />
+              <button
+                type="submit"
+                disabled={!manualCode.trim() || !selectedEventId || scanSubmitting}
+                className="shrink-0 rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f0f1a] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {scanSubmitting ? "Đang xác nhận..." : "Xác nhận"}
+              </button>
+            </div>
 
-            <button
-              type="button"
-              onClick={() => handleScan()}
-              className="px-4 py-3 rounded-2xl bg-white text-slate-900 text-sm font-semibold"
-            >
-              Gửi
-            </button>
-          </div>
+
+          </form>
 
           {result && (
-            <div className={`rounded-2xl border px-4 py-3 ${getResultStyle(result)}`}>
-              <p className="text-sm font-semibold">
-                {result.title}
-              </p>
-              <p className="text-sm mt-1">
-                {result.message}
-              </p>
-              {(result.detail || result.time) && (
-                <p className="text-xs mt-1 opacity-80">
-                  {[result.detail, result.time].filter(Boolean).join(" · ")}
-                </p>
-              )}
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+              <div 
+                className={`w-full max-w-sm rounded-3xl border-2 p-6 text-center shadow-2xl flex flex-col items-center bg-[#151522] animate-in zoom-in-95 duration-200 ${
+                  result.type === 'success' ? 'border-emerald-500/50 text-emerald-400' :
+                  result.type === 'warning' ? 'border-amber-500/50 text-amber-400' :
+                  'border-red-500/50 text-red-400'
+                }`}
+              >
+                {result.type === 'success' && <CheckCircle className="w-16 h-16 mb-4 text-emerald-500 drop-shadow-md" />}
+                {result.type === 'warning' && <AlertCircle className="w-16 h-16 mb-4 text-amber-500 drop-shadow-md" />}
+                {result.type === 'error' && <XCircle className="w-16 h-16 mb-4 text-red-500 drop-shadow-md" />}
+                
+                <h3 className="text-xl font-bold mb-2 text-white">{result.title}</h3>
+                <p className="text-base font-medium mb-1 opacity-90">{result.message}</p>
+                
+                {(result.detail || result.time) && (
+                  <p className="text-sm opacity-70 mb-6">
+                    {[result.detail, result.time].filter(Boolean).join(" · ")}
+                  </p>
+                )}
+                
+                <button 
+                  onClick={() => setResult(null)}
+                  className="mt-2 w-full py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors font-semibold"
+                >
+                  Đóng
+                </button>
+              </div>
             </div>
           )}
         </div>

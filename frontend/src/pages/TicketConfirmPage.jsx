@@ -34,18 +34,26 @@ const TicketConfirmPage = () => {
         setErrorMsg('');
 
         try {
-            const eventId = event.id || event.ma_su_kien;
-            const resData = await apiFetch('/api/tickets/book', {
+            const token = sessionStorage.getItem('accessToken') || localStorage.getItem('accessToken');
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+            const response = await fetch(`${apiUrl}/api/tickets/book`, {
                 method: 'POST',
-                body: JSON.stringify({ eventId })
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ eventId: event.id })
             });
 
-            if (!resData?.success) {
-                throw new Error(resData?.message || resData?.error || 'Lỗi đặt vé');
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.message || data.error || 'Lỗi đặt vé');
             }
 
             // Lưu QR code data để render
-            setQrData(resData.data?.qrCode);
+            setQrData(data.data.qrCode);
 
         } catch (error) {
             setErrorMsg(error.message || 'Có lỗi xảy ra khi đặt vé');

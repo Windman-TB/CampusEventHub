@@ -123,6 +123,7 @@ const getEventByIdService = async (id, maTaiKhoan) => {
   delete computedData.tai_khoan;
 
   let hasRegistered = false;
+  let canCheckin = false;
   if (maTaiKhoan) {
     const { count } = await supabase
       .from('dang_ky')
@@ -132,8 +133,21 @@ const getEventByIdService = async (id, maTaiKhoan) => {
       .neq('trang_thai_ve', 'DaHuy')
       .eq('da_xoa', false);
     hasRegistered = count > 0;
+
+    if (computedData.ma_tai_khoan_to_chuc === maTaiKhoan) {
+      canCheckin = true;
+    } else {
+      const { count: staffCount } = await supabase
+        .from('nhan_vien_check_in')
+        .select('*', { count: 'exact', head: true })
+        .eq('ma_su_kien', id)
+        .eq('ma_tai_khoan', maTaiKhoan)
+        .eq('da_xoa', false);
+      if (staffCount > 0) canCheckin = true;
+    }
   }
   computedData.hasRegistered = hasRegistered;
+  computedData.canCheckin = canCheckin;
 
   return computedData;
 };

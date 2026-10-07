@@ -46,27 +46,25 @@ export function BottomNav({
     : "text-slate-400 hover:text-slate-600";
 
   const cls = (isActive) =>
-    `flex flex-col items-center gap-1 w-16 transition-colors ${
-      isActive
-        ? activeCls
-        : inactiveCls
+    `flex flex-col items-center gap-1 w-16 transition-colors ${isActive
+      ? activeCls
+      : inactiveCls
     }`;
 
   const navStyle = dark
     ? {
-        background: "#0f0f1a",
-        borderColor:
-          "rgba(255,255,255,0.08)",
-      }
+      background: "#0f0f1a",
+      borderColor:
+        "rgba(255,255,255,0.08)",
+    }
     : undefined;
 
   return (
     <div
-      className={`fixed bottom-0 left-0 right-0 border-t z-50 pb-safe ${
-        dark
+      className={`fixed bottom-0 left-0 right-0 border-t z-50 pb-safe ${dark
           ? ""
           : "bg-white border-slate-100 shadow-[0_-2px_10px_rgba(0,0,0,0.02)]"
-      }`}
+        }`}
       style={navStyle}
     >
       <div className="flex justify-around items-center h-[60px] max-w-screen-xl mx-auto px-2">
