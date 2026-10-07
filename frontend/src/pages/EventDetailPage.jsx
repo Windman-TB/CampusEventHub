@@ -59,9 +59,9 @@ export default function EventDetailPage() {
   const dayName = dateObj.toLocaleDateString('vi-VN', { weekday: 'long' });
   const dateStr = dateObj.toLocaleDateString('vi-VN');
 
-  const eventDateStr = dateObj.toLocaleDateString('en-CA');
-  const todayStr = new Date().toLocaleDateString('en-CA');
-  const isToday = eventDateStr === todayStr;
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const isToday = event.ngay_dien_ra === todayStr;
 
   // Lấy dữ liệu sinh viên từ local storage
   const userStr = localStorage.getItem('user');
@@ -215,7 +215,7 @@ export default function EventDetailPage() {
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 z-20 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         {(event.canCheckin && isToday) ? (
           <button
-            onClick={() => navigate('/checkin')}
+            onClick={() => navigate('/check-in')}
             className="w-full py-3.5 rounded-xl font-bold transition-all shadow-sm bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-md"
           >
             Điểm danh sự kiện
@@ -246,10 +246,10 @@ export default function EventDetailPage() {
             }}
             disabled={registering || (isFull && !registered)}
             className={`w-full py-3.5 rounded-xl font-bold transition-all shadow-sm ${registered
-                ? 'bg-indigo-50 text-indigo-700'
-                : isFull
-                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                  : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md'
+              ? 'bg-indigo-50 text-indigo-700'
+              : isFull
+                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md'
               }`}
           >
             {registering ? 'Đang xử lý...' : (registered ? 'Xem vé của tôi' : (isFull ? 'Hết chỗ' : 'Đăng ký ngay'))}

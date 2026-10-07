@@ -158,12 +158,20 @@ async function getAssignedEvents(user, options = {}) {
     throw error;
   }
 
-  if (user.role === "NhanVienCheckIn") {
-    return listAssignedEventsForStaff(actorId, options.now);
-  }
-
-  if (user.role === "ToChuc") {
-    return listAssignedEventsForOrganizer(actorId, options.now);
+  if (user.role === "NhanVienCheckIn" || user.role === "SinhVien" || user.role === "ToChuc") {
+    const staffEvents = await listAssignedEventsForStaff(actorId, options.now);
+    const organizerEvents = await listAssignedEventsForOrganizer(actorId, options.now);
+    
+    const combined = [...staffEvents, ...organizerEvents];
+    const unique = [];
+    const seen = new Set();
+    for (const event of combined) {
+      if (!seen.has(event.ma_su_kien)) {
+        seen.add(event.ma_su_kien);
+        unique.push(event);
+      }
+    }
+    return unique;
   }
 
   const error = new Error("Bạn không có quyền soát vé");

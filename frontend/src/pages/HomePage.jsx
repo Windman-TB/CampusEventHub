@@ -11,6 +11,7 @@ export default function HomePage() {
   const [ticketStatus, setTicketStatus] = useState('all');
   const [date, setDate] = useState('');
   const [location, setLocation] = useState('');
+  const [sortBy, setSortBy] = useState('date_asc');
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -171,9 +172,9 @@ export default function HomePage() {
             </div>
           </div>
           
-          {/* Search & Filter Button */}
-          <div className="px-4 pb-3 flex gap-2">
-            <div className="flex-1 relative">
+          {/* Search, Sort & Filter */}
+          <div className="px-4 pb-3 flex flex-wrap md:flex-nowrap gap-2">
+            <div className="flex-1 relative min-w-[200px]">
               <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input 
                 value={search} 
@@ -182,16 +183,28 @@ export default function HomePage() {
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white shadow-sm outline-none text-sm transition-colors focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" 
               />
             </div>
-            <button 
-              onClick={() => {
-                setModalTopic(topic);
-                setModalTicket(ticketStatus);
-                setShowFilterModal(true);
-              }}
-              className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl bg-white text-sm font-semibold text-slate-600 shadow-sm hover:bg-slate-50 transition-colors"
-            >
-              <Filter size={16} /> Bộ lọc
-            </button>
+            <div className="flex gap-2">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-sm font-semibold text-slate-600 shadow-sm hover:bg-slate-50 transition-colors outline-none cursor-pointer"
+              >
+                <option value="date_asc">Sắp diễn ra</option>
+                <option value="date_desc">Xa nhất</option>
+                <option value="name_asc">Tên (A-Z)</option>
+                <option value="name_desc">Tên (Z-A)</option>
+              </select>
+              <button 
+                onClick={() => {
+                  setModalTopic(topic);
+                  setModalTicket(ticketStatus);
+                  setShowFilterModal(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl bg-white text-sm font-semibold text-slate-600 shadow-sm hover:bg-slate-50 transition-colors shrink-0"
+              >
+                <Filter size={16} /> Bộ lọc
+              </button>
+            </div>
           </div>
 
           {/* Quick Filter Row 1: Topics */}
@@ -234,7 +247,13 @@ export default function HomePage() {
             <div className="text-center py-10 text-slate-500">Không tìm thấy sự kiện nào.</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {events.map(event => {
+              {[...events].sort((a, b) => {
+                if (sortBy === 'date_asc') return new Date(a.ngay_dien_ra) - new Date(b.ngay_dien_ra);
+                if (sortBy === 'date_desc') return new Date(b.ngay_dien_ra) - new Date(a.ngay_dien_ra);
+                if (sortBy === 'name_asc') return (a.ten_su_kien || '').localeCompare(b.ten_su_kien || '');
+                if (sortBy === 'name_desc') return (b.ten_su_kien || '').localeCompare(a.ten_su_kien || '');
+                return 0;
+              }).map(event => {
                 const colors = ['#4f46e5', '#0891b2', '#7c3aed', '#059669', '#d97706'];
                 const bgHeaderColor = colors[(event.ma_chuyen_de - 1) % colors.length] || '#4f46e5';
                 const topicName = event.chuyen_de?.ten_chuyen_de || 'Chuyên đề';
