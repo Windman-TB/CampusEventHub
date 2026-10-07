@@ -28,6 +28,17 @@ function getResultStyle(result) {
   return "border-red-400/30 bg-red-500/15 text-red-100";
 }
 
+function getResponsiveQrbox(viewfinderWidth, viewfinderHeight) {
+  const shortestSide = Math.min(viewfinderWidth, viewfinderHeight);
+  const ratio = viewfinderWidth >= 1024 ? 0.5 : viewfinderWidth >= 640 ? 0.58 : 0.72;
+  const size = Math.round(Math.max(180, Math.min(shortestSide * ratio, 380)));
+
+  return {
+    width: size,
+    height: size,
+  };
+}
+
 export default function CheckInPage() {
   const navigate = useNavigate();
   const cameraRef = useRef(null);
@@ -175,10 +186,7 @@ export default function CheckInPage() {
           fps: 10,
           aspectRatio: 16 / 9,
           disableFlip: false,
-          qrbox: {
-            width: 220,
-            height: 220,
-          },
+          qrbox: getResponsiveQrbox,
         },
         (decodedText) => {
           handleScan(decodedText, {
@@ -370,7 +378,7 @@ export default function CheckInPage() {
           <div className="rounded-3xl overflow-hidden relative bg-slate-950 border border-white/10">
             <div
               id={CAMERA_REGION_ID}
-              className="min-h-[260px] aspect-video [&_video]:!w-full [&_video]:!h-full [&_video]:!object-cover [&_canvas]:!hidden"
+              className="h-[clamp(280px,56vw,560px)] lg:h-[clamp(360px,42vw,640px)] [&_video]:!w-full [&_video]:!h-full [&_video]:!object-cover [&_canvas]:!hidden"
             />
             {!cameraActive && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-slate-500">
@@ -379,7 +387,7 @@ export default function CheckInPage() {
             )}
             {cameraActive && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <div className="h-56 w-56 rounded-3xl border-2 border-white/70 shadow-[0_0_0_999px_rgba(2,6,23,0.35)]" />
+                <div className="h-[clamp(180px,42vmin,380px)] w-[clamp(180px,42vmin,380px)] rounded-3xl border-2 border-white/70 shadow-[0_0_0_999px_rgba(2,6,23,0.35)]" />
               </div>
             )}
           </div>

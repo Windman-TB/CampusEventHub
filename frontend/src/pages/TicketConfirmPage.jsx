@@ -15,7 +15,7 @@ const TicketConfirmPage = () => {
     // Lấy thông tin user từ localStorage 
     const storedUser = localStorage.getItem('user');
     const displayUser = storedUser ? JSON.parse(storedUser) : null;
-    
+
     // Nếu không có event (do truy cập trực tiếp link), hiển thị lỗi thân thiện
     if (!event) {
         return (
@@ -32,23 +32,23 @@ const TicketConfirmPage = () => {
     const handleBookTicket = async () => {
         setIsLoading(true);
         setErrorMsg('');
-        
+
         try {
-            // Sử dụng apiFetch thay cho fetch thủ công
-            const data = await apiFetch('/api/tickets/book', {
+            const eventId = event.id || event.ma_su_kien;
+            const resData = await apiFetch('/api/tickets/book', {
                 method: 'POST',
-                body: JSON.stringify({ eventId: event.id })
+                body: JSON.stringify({ eventId })
             });
 
-            if (!data.success) {
-                throw new Error(data.message || data.error || 'Lỗi đặt vé');
+            if (!resData?.success) {
+                throw new Error(resData?.message || resData?.error || 'Lỗi đặt vé');
             }
 
             // Lưu QR code data để render
-            setQrData(data.data.qrCode);
-            
+            setQrData(resData.data?.qrCode);
+
         } catch (error) {
-            setErrorMsg(error.message);
+            setErrorMsg(error.message || 'Có lỗi xảy ra khi đặt vé');
         } finally {
             setIsLoading(false);
         }
@@ -57,7 +57,7 @@ const TicketConfirmPage = () => {
     return (
         <div className="max-w-md mx-auto p-6 bg-white rounded-xl shadow-lg border border-gray-100 mt-10">
             <h2 className="text-2xl font-bold text-gray-800 mb-4 text-center">Xác nhận Đặt Vé</h2>
-            
+
             {!qrData ? (
                 <>
                     <div className="mb-6 space-y-3 text-sm text-gray-600">
@@ -74,7 +74,7 @@ const TicketConfirmPage = () => {
                         </div>
                     )}
 
-                    <button 
+                    <button
                         onClick={handleBookTicket}
                         disabled={isLoading}
                         className={`w-full py-3 rounded-lg font-semibold text-white transition-all 
@@ -94,13 +94,13 @@ const TicketConfirmPage = () => {
                     <p className="text-sm text-gray-500 text-center mb-4">
                         Đưa mã QR này cho Ban Tổ Chức khi check-in vào sự kiện.
                     </p>
-                    
+
                     <div className="p-4 bg-white border-2 border-dashed border-gray-300 rounded-xl inline-block">
                         <QRCodeSVG value={qrData} size={200} />
                     </div>
                     <p className="text-xs text-gray-400 mt-2 font-mono break-all text-center">ID: {qrData}</p>
-                    
-                    <button 
+
+                    <button
                         className="mt-6 px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                         onClick={() => navigate('/home')}
                     >
