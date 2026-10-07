@@ -56,7 +56,7 @@ const TicketConfirmPage = () => {
             setQrData(data.data.qrCode);
 
         } catch (error) {
-            setErrorMsg(error.message);
+            setErrorMsg(error.message || 'Có lỗi xảy ra khi đặt vé');
         } finally {
             setIsLoading(false);
         }

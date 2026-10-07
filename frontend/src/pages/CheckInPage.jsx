@@ -29,6 +29,17 @@ function getResultStyle(result) {
   return "border-red-400/30 bg-red-500/15 text-red-100";
 }
 
+function getResponsiveQrbox(viewfinderWidth, viewfinderHeight) {
+  const shortestSide = Math.min(viewfinderWidth, viewfinderHeight);
+  const ratio = viewfinderWidth >= 1024 ? 0.5 : viewfinderWidth >= 640 ? 0.58 : 0.72;
+  const size = Math.round(Math.max(180, Math.min(shortestSide * ratio, 380)));
+
+  return {
+    width: size,
+    height: size,
+  };
+}
+
 export default function CheckInPage() {
   const navigate = useNavigate();
   const cameraRef = useRef(null);
