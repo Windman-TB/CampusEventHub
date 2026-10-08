@@ -46,7 +46,7 @@ const getOrganizerEvents = async (req, res, next) => {
 
 const getPublicEvents = async (req, res, next) => {
   try {
-    const { keyword, ma_chuyen_de, trang_thai_su_kien, ticketStatus, ngay_dien_ra, dia_diem, page, limit } = req.query;
+    const { keyword, ma_chuyen_de, trang_thai_su_kien, ticketStatus, ngay_dien_ra, dia_diem, page, limit, sortBy } = req.query;
     const result = await eventService.getPublicEventsService({
       keyword,
       ma_chuyen_de: ma_chuyen_de ? Number(ma_chuyen_de) : undefined,
@@ -55,7 +55,8 @@ const getPublicEvents = async (req, res, next) => {
       ngay_dien_ra,
       dia_diem,
       page: page ? Number(page) : 1,
-      limit: limit ? Number(limit) : 9
+      limit: limit ? Number(limit) : 9,
+      sortBy
     });
 
     return res.status(200).json({
