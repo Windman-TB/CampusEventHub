@@ -37,7 +37,7 @@ export default function HomePage() {
   const userName = displayUser?.ho_ten || displayUser?.name || 'Khách';
   const userInitials = userName.split(' ').map(n => n[0]).join('').slice(-2).toUpperCase();
 
-  const fetchEvents = async (querySearch, queryTopic, queryTicket, queryDate, queryLocation, queryPage) => {
+  const fetchEvents = async (querySearch, queryTopic, queryTicket, queryDate, queryLocation, querySort, queryPage) => {
     setLoading(true);
     try {
       const params = { page: queryPage, limit: 9 };
@@ -46,6 +46,7 @@ export default function HomePage() {
       if (queryTicket !== 'all') params.ticketStatus = queryTicket;
       if (queryDate) params.ngay_dien_ra = queryDate;
       if (queryLocation) params.dia_diem = queryLocation;
+      if (querySort) params.sortBy = querySort;
 
       const res = await getPublicEvents(params);
       if (res.success) {
@@ -70,7 +71,7 @@ export default function HomePage() {
     
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
     searchTimeout.current = setTimeout(() => {
-      fetchEvents(value, topic, ticketStatus, date, location, 1);
+      fetchEvents(value, topic, ticketStatus, date, location, sortBy, 1);
     }, 500);
   };
 
@@ -78,14 +79,14 @@ export default function HomePage() {
     const newTopic = topic === t ? 'all' : t;
     setTopic(newTopic);
     setPage(1);
-    fetchEvents(search, newTopic, ticketStatus, date, location, 1);
+    fetchEvents(search, newTopic, ticketStatus, date, location, sortBy, 1);
   };
 
   const handleTicketStatusChange = (st) => {
     const newSt = ticketStatus === st ? 'all' : st;
     setTicketStatus(newSt);
     setPage(1);
-    fetchEvents(search, topic, newSt, date, location, 1);
+    fetchEvents(search, topic, newSt, date, location, sortBy, 1);
   };
 
   const applyModalFilters = () => {
@@ -95,7 +96,7 @@ export default function HomePage() {
     setLocation(modalLocation);
     setShowFilterModal(false);
     setPage(1);
-    fetchEvents(search, modalTopic, modalTicket, modalDate, modalLocation, 1);
+    fetchEvents(search, modalTopic, modalTicket, modalDate, modalLocation, sortBy, 1);
   };
 
   const clearModalFilters = () => {
@@ -110,13 +111,13 @@ export default function HomePage() {
     setLocation('');
     setShowFilterModal(false);
     setPage(1);
-    fetchEvents(search, 'all', 'all', '', '', 1);
+    fetchEvents(search, 'all', 'all', '', '', sortBy, 1);
   };
 
   const loadMore = () => {
     const nextPage = page + 1;
     setPage(nextPage);
-    fetchEvents(search, topic, ticketStatus, date, location, nextPage);
+    fetchEvents(search, topic, ticketStatus, date, location, sortBy, nextPage);
   };
 
   const fetchNotifs = async () => {
@@ -132,7 +133,7 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    fetchEvents(search, topic, ticketStatus, date, location, 1);
+    fetchEvents(search, topic, ticketStatus, date, location, sortBy, 1);
     fetchNotifs();
     fetchCategories().then(res => {
       if(res.success) setCategories(res.data);
@@ -186,11 +187,17 @@ export default function HomePage() {
             <div className="flex gap-2">
               <select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSortBy(val);
+                  setPage(1);
+                  fetchEvents(search, topic, ticketStatus, date, location, val, 1);
+                }}
                 className="px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-sm font-semibold text-slate-600 shadow-sm hover:bg-slate-50 transition-colors outline-none cursor-pointer"
               >
                 <option value="date_asc">Sắp diễn ra</option>
-                <option value="date_desc">Xa nhất</option>
+                <option value="date_latest">Thời gian diễn ra trễ nhất</option>
+                <option value="date_earliest">Thời gian diễn ra sớm nhất</option>
                 <option value="name_asc">Tên (A-Z)</option>
                 <option value="name_desc">Tên (Z-A)</option>
               </select>
@@ -248,8 +255,20 @@ export default function HomePage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {[...events].sort((a, b) => {
-                if (sortBy === 'date_asc') return new Date(a.ngay_dien_ra) - new Date(b.ngay_dien_ra);
-                if (sortBy === 'date_desc') return new Date(b.ngay_dien_ra) - new Date(a.ngay_dien_ra);
+                if (sortBy === 'date_asc') {
+                  const now = new Date();
+                  now.setHours(0, 0, 0, 0);
+                  const dateA = new Date(a.ngay_dien_ra);
+                  const dateB = new Date(b.ngay_dien_ra);
+                  const isPastA = dateA < now;
+                  const isPastB = dateB < now;
+                  
+                  if (isPastA && !isPastB) return 1; // Sự kiện A đã qua, B chưa qua -> B lên trước
+                  if (!isPastA && isPastB) return -1; // Sự kiện A chưa qua, B đã qua -> A lên trước
+                  return dateA - dateB; // Nếu cùng qua hoặc cùng chưa qua thì xếp tăng dần
+                }
+                if (sortBy === 'date_latest' || sortBy === 'date_desc') return new Date(b.ngay_dien_ra) - new Date(a.ngay_dien_ra);
+                if (sortBy === 'date_earliest') return new Date(a.ngay_dien_ra) - new Date(b.ngay_dien_ra);
                 if (sortBy === 'name_asc') return (a.ten_su_kien || '').localeCompare(b.ten_su_kien || '');
                 if (sortBy === 'name_desc') return (b.ten_su_kien || '').localeCompare(a.ten_su_kien || '');
                 return 0;

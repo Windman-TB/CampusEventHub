@@ -63,6 +63,11 @@ export default function EventDetailPage() {
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const isToday = event.ngay_dien_ra === todayStr;
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const eventDate = new Date(event.ngay_dien_ra);
+  const isPast = eventDate < today;
+
   // Lấy dữ liệu sinh viên từ local storage
   const userStr = localStorage.getItem('user');
   const user = userStr ? JSON.parse(userStr) : {};
@@ -227,7 +232,7 @@ export default function EventDetailPage() {
                 navigate('/tickets');
                 return;
               }
-              if (isFull) return;
+              if (isFull || isPast) return;
               setRegistering(true);
               setTimeout(() => {
                 setRegistering(false);
@@ -244,15 +249,15 @@ export default function EventDetailPage() {
                 });
               }, 1000);
             }}
-            disabled={registering || (isFull && !registered)}
+            disabled={registering || ((isFull || isPast) && !registered)}
             className={`w-full py-3.5 rounded-xl font-bold transition-all shadow-sm ${registered
               ? 'bg-indigo-50 text-indigo-700'
-              : isFull
+              : (isFull || isPast)
                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                 : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md'
               }`}
           >
-            {registering ? 'Đang xử lý...' : (registered ? 'Xem vé của tôi' : (isFull ? 'Hết chỗ' : 'Đăng ký ngay'))}
+            {registering ? 'Đang xử lý...' : (registered ? 'Xem vé của tôi' : (isPast ? 'Sự kiện đã kết thúc' : (isFull ? 'Hết chỗ' : 'Đăng ký ngay')))}
           </button>
         )}
       </div>
