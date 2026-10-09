@@ -29,6 +29,13 @@ function getStatus(ticket) {
     };
   }
 
+  if (ticket.isExpired) {
+    return {
+      label: "Hết hạn",
+      className: "bg-slate-100 text-slate-600",
+    };
+  }
+
   return {
     label: ticket.canShowQr ? "Còn hiệu lực" : "Chưa check-in",
     className: "bg-indigo-50 text-indigo-600",
