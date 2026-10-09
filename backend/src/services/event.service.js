@@ -38,7 +38,7 @@ const getOrganizerEventsService = async (maTaiKhoanToChuc) => {
 };
 
 // 0. Lấy danh sách sự kiện public (Gói 3)
-const getPublicEventsService = async ({ keyword, ma_chuyen_de, trang_thai_su_kien, ticketStatus, ngay_dien_ra, dia_diem, page = 1, limit = 9, sortBy = 'date_asc' }) => {
+const getPublicEventsService = async ({ keyword, ma_chuyen_de, trang_thai_su_kien, ticketStatus, ngay_dien_ra, dia_diem, page = 1, limit = 9, sortBy = 'date_asc', maTaiKhoan = null }) => {
   let query = supabase
     .from('su_kien')
     .select(`
@@ -65,6 +65,19 @@ const getPublicEventsService = async ({ keyword, ma_chuyen_de, trang_thai_su_kie
   const { data, error } = await query;
   if (error) throw error;
 
+  let registeredEventIds = new Set();
+  if (maTaiKhoan) {
+    const { data: userRegs } = await supabase
+      .from('dang_ky')
+      .select('ma_su_kien')
+      .eq('ma_tai_khoan', maTaiKhoan)
+      .neq('trang_thai_ve', 'DaHuy')
+      .eq('da_xoa', false);
+    if (userRegs) {
+      registeredEventIds = new Set(userRegs.map(r => r.ma_su_kien));
+    }
+  }
+
   let formattedData = data.map(item => {
     const computed = processEventWithStatus(item);
     const so_ve_da_dat = item.dang_ky?.[0]?.count || 0; 
@@ -73,6 +86,7 @@ const getPublicEventsService = async ({ keyword, ma_chuyen_de, trang_thai_su_kie
       ...computed,
       so_ve_da_dat,
       so_ve_con_lai,
+      hasRegistered: registeredEventIds.has(item.ma_su_kien),
       dang_ky: undefined
     };
   });
