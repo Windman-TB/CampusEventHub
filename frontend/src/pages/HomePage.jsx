@@ -143,6 +143,12 @@ export default function HomePage() {
   
   // Helper to get status pill styling
   const getTicketStatusBadge = (event) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const eventDate = new Date(event.ngay_dien_ra);
+    const isPast = eventDate < today || event.trang_thai_su_kien === 'DaKetThuc';
+
+    if (isPast) return { label: 'Đã kết thúc', bg: 'bg-slate-200', text: 'text-slate-600' };
     if (event.so_ve_con_lai <= 0) return { label: 'Hết chỗ', bg: 'bg-rose-100', text: 'text-rose-600' };
     if (event.so_ve_con_lai <= event.so_luong_toi_da * 0.2) return { label: 'Sắp hết', bg: 'bg-amber-100', text: 'text-amber-700' };
     return { label: 'Còn chỗ', bg: 'bg-emerald-100', text: 'text-emerald-700' };
@@ -278,6 +284,11 @@ export default function HomePage() {
                 const topicName = event.chuyen_de?.ten_chuyen_de || 'Chuyên đề';
                 const statusBadge = getTicketStatusBadge(event);
                 const isFull = event.so_ve_con_lai <= 0;
+
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const eventDate = new Date(event.ngay_dien_ra);
+                const isPast = eventDate < today || event.trang_thai_su_kien === 'DaKetThuc';
                 
                 const pct = event.so_luong_toi_da > 0 
                   ? Math.round((event.so_ve_da_dat / event.so_luong_toi_da) * 100) 
@@ -295,13 +306,18 @@ export default function HomePage() {
                         backgroundPosition: 'center',
                         backgroundRepeat: 'no-repeat'
                       }}>
-                      <div className="absolute top-3 left-3 flex gap-2">
+                      <div className="absolute top-3 left-3 flex flex-wrap gap-2">
                         <span className="px-3 py-1 bg-indigo-600 text-white text-xs font-bold rounded-full shadow-sm">
                           {topicName}
                         </span>
                         <span className={`px-3 py-1 text-xs font-bold rounded-full shadow-sm ${statusBadge.bg} ${statusBadge.text}`}>
                           {statusBadge.label}
                         </span>
+                        {(event.hasRegistered && !isPast) && (
+                          <span className="px-3 py-1 bg-emerald-600 text-white text-xs font-bold rounded-full shadow-sm flex items-center gap-1">
+                            <Check size={12} strokeWidth={3} /> Đã đăng ký
+                          </span>
+                        )}
                       </div>
                     </div>
                     
@@ -324,13 +340,13 @@ export default function HomePage() {
                       <div className="mt-auto">
                         <div className="flex justify-between text-[11px] font-semibold text-slate-500 mb-1.5">
                           <span>{event.so_ve_da_dat} / {event.so_luong_toi_da} chỗ đã đăng ký</span>
-                          <span className={statusBadge.text}>{isFull ? '0 còn lại' : `${event.so_ve_con_lai} còn lại`}</span>
+                          <span className={statusBadge.text}>{isPast ? 'Đã kết thúc' : (isFull ? '0 còn lại' : `${event.so_ve_con_lai} còn lại`)}</span>
                         </div>
                         <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mb-4">
                           <div className="h-full rounded-full transition-all" 
                             style={{ 
                               width: `${Math.min(pct, 100)}%`, 
-                              background: isFull ? '#ef4444' : pct > 80 ? '#f59e0b' : '#4f46e5' 
+                              background: isPast ? '#94a3b8' : (isFull ? '#ef4444' : pct > 80 ? '#f59e0b' : '#4f46e5') 
                             }} 
                           />
                         </div>
@@ -338,11 +354,15 @@ export default function HomePage() {
                         <button 
                           onClick={() => navigate(`/events/${event.ma_su_kien}`)}
                           className={`w-full py-2.5 rounded-xl text-sm font-bold transition-colors ${
-                            isFull 
-                              ? 'bg-slate-50 text-slate-400 cursor-not-allowed' 
-                              : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
+                            isPast
+                              ? 'bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200'
+                              : event.hasRegistered
+                                ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                                : isFull 
+                                  ? 'bg-slate-50 text-slate-400 cursor-not-allowed' 
+                                  : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
                           }`}>
-                          {isFull ? 'Hết chỗ' : 'Xem chi tiết'}
+                          {isPast ? 'Đã kết thúc' : (event.hasRegistered ? 'Đã đăng ký · Xem chi tiết' : (isFull ? 'Hết chỗ' : 'Xem chi tiết'))}
                         </button>
                       </div>
                     </div>

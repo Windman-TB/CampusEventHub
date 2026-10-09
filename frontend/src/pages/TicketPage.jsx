@@ -14,6 +14,38 @@ function formatDate(event) {
   return date.toLocaleDateString("vi-VN");
 }
 
+function isEventEnded(event) {
+  if (!event) return false;
+  if (event.trang_thai_su_kien === "DaKetThuc") return true;
+
+  if (event.ngay_dien_ra) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const parts = String(event.ngay_dien_ra).split("-");
+    if (parts.length === 3) {
+      const year = Number(parts[0]);
+      const month = Number(parts[1]) - 1;
+      const day = Number(parts[2]);
+      const eventDate = new Date(year, month, day);
+
+      if (eventDate < today) return true;
+
+      if (eventDate.getTime() === today.getTime() && event.thoi_gian_ket_thuc) {
+        const timeParts = String(event.thoi_gian_ket_thuc).split(":");
+        if (timeParts.length >= 2) {
+          const endHour = Number(timeParts[0]);
+          const endMinute = Number(timeParts[1]);
+          const endTime = new Date(year, month, day, endHour, endMinute, 0);
+          if (now > endTime) return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
 function getStatus(ticket) {
   if (ticket.trang_thai_ve === "DaCheckIn") {
     return {
@@ -29,10 +61,10 @@ function getStatus(ticket) {
     };
   }
 
-  if (ticket.isExpired) {
+  if (isEventEnded(ticket.su_kien)) {
     return {
-      label: "Hết hạn",
-      className: "bg-slate-100 text-slate-600",
+      label: "Đã kết thúc",
+      className: "bg-slate-100 text-slate-500",
     };
   }
 
