@@ -11,12 +11,17 @@
     "test:watch": "jest --watch",
     "reminder:run": "node scripts/run-reminder.js",
     "package5:demo": "node scripts/package5-demo-data.js",
-    "package5:integration": "jest --runInBand tests/integration/package5.api.integration.test.js"
+    "package5:integration": "jest --runInBand tests/integration/package5.api.integration.test.js",
+    "test:phase3": "node tests/phase3.concurrency.test.js"
   },
   "jest": {
     "testEnvironment": "node",
     "testMatch": [
       "**/tests/**/*.test.js"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "phase3.concurrency.test.js"
     ],
     "moduleFileExtensions": [
       "js",
