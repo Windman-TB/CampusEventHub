@@ -60,8 +60,27 @@ export default function EventManagementPage() {
     }
   };
 
+  // Fetch when the page mounts. Async callbacks update state after the request resolves.
   useEffect(() => {
-    loadEvents();
+    let cancelled = false;
+
+    fetchOrganizerEvents()
+      .then((res) => {
+        if (cancelled) return;
+        if (res?.success) {
+          setEvents(Array.isArray(res.data) ? res.data : []);
+        } else {
+          setError(res?.message || 'Không thể tải danh sách sự kiện');
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err?.message || 'Lỗi kết nối máy chủ');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, []);
 
   // 2. Xử lý xóa / hủy sự kiện

@@ -2,7 +2,6 @@ import { Html5Qrcode } from "html5-qrcode";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Camera, CheckCircle, AlertCircle, XCircle } from "lucide-react";
-
 import { BottomNav } from "../layouts/MainLayout";
 import {
   fetchAssignedEvents,
@@ -12,7 +11,6 @@ import {
 import { clearAuthSession } from "../utils/authStorage";
 
 const CAMERA_REGION_ID = "checkin-camera-reader";
-
 function formatTime(value) {
   if (!value) return "—";
   return new Date(value).toLocaleTimeString("vi-VN", {
@@ -20,24 +18,6 @@ function formatTime(value) {
     minute: "2-digit",
     second: "2-digit",
   });
-}
-
-function getResultStyle(result) {
-  if (!result) return "border-white/10 bg-white/5 text-slate-300";
-  if (result.type === "success") return "border-emerald-400/30 bg-emerald-500/15 text-emerald-100";
-  if (result.type === "warning") return "border-amber-400/30 bg-amber-500/15 text-amber-100";
-  return "border-red-400/30 bg-red-500/15 text-red-100";
-}
-
-function getResponsiveQrbox(viewfinderWidth, viewfinderHeight) {
-  const shortestSide = Math.min(viewfinderWidth, viewfinderHeight);
-  const ratio = viewfinderWidth >= 1024 ? 0.5 : viewfinderWidth >= 640 ? 0.58 : 0.72;
-  const size = Math.round(Math.max(180, Math.min(shortestSide * ratio, 380)));
-
-  return {
-    width: size,
-    height: size,
-  };
 }
 
 export default function CheckInPage() {
@@ -49,7 +29,6 @@ export default function CheckInPage() {
     value: "",
     time: 0,
   });
-
   const [tab, setTab] = useState("scan");
   const [manualCode, setManualCode] = useState("");
   const [events, setEvents] = useState([]);
@@ -76,16 +55,12 @@ export default function CheckInPage() {
   async function loadEvents() {
     setLoadingEvents(true);
     setError("");
-
     try {
       const response = await fetchAssignedEvents();
       const assignedEvents = response.data || [];
       const now = new Date();
       const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      console.log("All assigned events:", assignedEvents, "Today:", todayStr);
       const todayEvents = assignedEvents.filter(e => e.ngay_dien_ra === todayStr);
-      console.log("Filtered events:", todayEvents);
-
       setEvents(todayEvents);
       setSelectedEventId((current) => {
         if (todayEvents.some((event) => String(event.ma_su_kien) === String(current))) {
@@ -105,16 +80,13 @@ export default function CheckInPage() {
       setHistory([]);
       return;
     }
-
     const requestEventId = String(eventId);
     setLoadingHistory(true);
-
     try {
       const response = await fetchCheckInHistory({
         eventId: requestEventId,
         limit: 20,
       });
-
       if (selectedEventIdRef.current === requestEventId) {
         setHistory(response.data?.items || []);
       }
@@ -134,7 +106,6 @@ export default function CheckInPage() {
       loadEvents();
     });
   }, []);
-
   useEffect(() => {
     queueMicrotask(() => {
       loadHistory(selectedEventId);
@@ -146,9 +117,7 @@ export default function CheckInPage() {
     cameraRef.current = null;
     setCameraActive(false);
     setCameraStarting(false);
-
     if (!instance) return;
-
     try {
       const state = instance.getState?.();
       if (state === 2) {
@@ -162,28 +131,22 @@ export default function CheckInPage() {
 
   async function startCamera() {
     setCameraError("");
-
     if (!selectedEventId) {
       setCameraError("Vui lòng chọn sự kiện trước khi mở camera.");
       return;
     }
-
     await stopCamera();
-
     try {
       setCameraStarting(true);
       const cameras = await Html5Qrcode.getCameras();
       const preferredCamera =
         cameras.find((camera) => /back|rear|environment/i.test(camera.label)) ||
         cameras[0];
-
       if (!preferredCamera) {
         throw new Error("Không tìm thấy camera trên thiết bị.");
       }
-
       const instance = new Html5Qrcode(CAMERA_REGION_ID);
       cameraRef.current = instance;
-
       await instance.start(
         preferredCamera.id,
         {
@@ -200,7 +163,6 @@ export default function CheckInPage() {
           });
         }
       );
-
       setCameraActive(true);
     } catch (err) {
       setCameraActive(false);
@@ -218,7 +180,6 @@ export default function CheckInPage() {
       stopCamera();
     };
   }, []);
-
   useEffect(() => {
     if (tab !== "scan") {
       queueMicrotask(() => {
@@ -226,13 +187,10 @@ export default function CheckInPage() {
       });
     }
   }, [tab]);
-
   async function handleScan(code, options = {}) {
     const qrCode = (code || manualCode).trim();
     const eventIdAtScan = selectedEventIdRef.current;
-
     if (!qrCode || !eventIdAtScan || inFlightRef.current) return;
-
     const now = Date.now();
     if (
       options.source === "camera" &&
@@ -241,7 +199,6 @@ export default function CheckInPage() {
     ) {
       return;
     }
-
     lastQrRef.current = {
       value: qrCode,
       time: now,
@@ -250,15 +207,12 @@ export default function CheckInPage() {
     setScanSubmitting(true);
     setManualCode("");
     setResult(null);
-
     try {
       const response = await scanTicket({
         eventId: eventIdAtScan,
         qrCode,
       });
-
       if (selectedEventIdRef.current !== eventIdAtScan) return;
-
       setResult({
         type: "success",
         title: "Check-in thành công",
@@ -266,11 +220,9 @@ export default function CheckInPage() {
         detail: response.data?.student?.mssv || "",
         time: formatTime(response.data?.checkedInAt),
       });
-
       await loadHistory(eventIdAtScan);
     } catch (err) {
       if (selectedEventIdRef.current !== eventIdAtScan) return;
-
       setResult({
         type: err.code === "ALREADY_CHECKED_IN" ? "warning" : "error",
         title:
@@ -305,7 +257,6 @@ export default function CheckInPage() {
               Campus Event Hub
             </p>
           </div>
-
           <button
             type="button"
             onClick={handleLogout}
@@ -315,7 +266,6 @@ export default function CheckInPage() {
           </button>
         </div>
       </div>
-
       <div className="flex mx-4 mb-3 p-1 rounded-xl bg-white/10">
         {["scan", "history"].map((currentTab) => (
           <button
@@ -334,17 +284,20 @@ export default function CheckInPage() {
           </button>
         ))}
       </div>
-
       <div className="px-4 mb-3">
         <p className="text-xs font-medium mb-1.5 text-slate-500">
           Sự kiện hiện tại
         </p>
-
         <select
           value={selectedEventId}
           onChange={(event) => {
-            setSelectedEventId(event.target.value);
+            const nextEventId = event.target.value;
+            selectedEventIdRef.current = nextEventId;
+            setSelectedEventId(nextEventId);
             setResult(null);
+            setError("");
+            lastQrRef.current = { value: "", time: 0 };
+            void stopCamera();
           }}
           disabled={loadingEvents || events.length === 0}
           className="w-full px-4 py-3 rounded-2xl text-sm font-medium outline-none bg-white/10 text-white border border-white/10"
@@ -365,7 +318,6 @@ export default function CheckInPage() {
             ))
           )}
         </select>
-
         {selectedEvent && (
           <p className="text-xs mt-2 text-slate-500">
             {selectedEvent.canScan
@@ -374,13 +326,11 @@ export default function CheckInPage() {
           </p>
         )}
       </div>
-
       {error && (
         <div className="mx-4 mb-3 rounded-2xl border border-red-400/30 bg-red-500/15 px-4 py-3 text-sm text-red-100">
           {error}
         </div>
       )}
-
       {tab === "scan" ? (
         <div className="px-4 space-y-4">
           <div className="mx-auto w-full max-w-2xl rounded-3xl overflow-hidden relative bg-[#090912] border border-white/10">
@@ -417,7 +367,6 @@ export default function CheckInPage() {
               </div>
             )}
           </div>
-
           {cameraActive && (
             <button
               type="button"
@@ -427,7 +376,6 @@ export default function CheckInPage() {
               Tắt camera
             </button>
           )}
-
           <form
             className="space-y-2"
             onSubmit={(event) => {
@@ -451,7 +399,6 @@ export default function CheckInPage() {
                 disabled={!selectedEvent?.canScan}
                 className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/30 disabled:opacity-50 disabled:cursor-not-allowed"
               />
-
               <button
                 type="submit"
                 disabled={!manualCode.trim() || !selectedEventId || scanSubmitting || !selectedEvent?.canScan}
@@ -460,10 +407,7 @@ export default function CheckInPage() {
                 {scanSubmitting ? "Đang xác nhận..." : "Xác nhận"}
               </button>
             </div>
-
-
           </form>
-
           {result && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
               <div 
@@ -476,16 +420,13 @@ export default function CheckInPage() {
                 {result.type === 'success' && <CheckCircle className="w-16 h-16 mb-4 text-emerald-500 drop-shadow-md" />}
                 {result.type === 'warning' && <AlertCircle className="w-16 h-16 mb-4 text-amber-500 drop-shadow-md" />}
                 {result.type === 'error' && <XCircle className="w-16 h-16 mb-4 text-red-500 drop-shadow-md" />}
-                
                 <h3 className="text-xl font-bold mb-2 text-white">{result.title}</h3>
                 <p className="text-base font-medium mb-1 opacity-90">{result.message}</p>
-                
                 {(result.detail || result.time) && (
                   <p className="text-sm opacity-70 mb-6">
                     {[result.detail, result.time].filter(Boolean).join(" · ")}
                   </p>
                 )}
-                
                 <button 
                   onClick={() => setResult(null)}
                   className="mt-2 w-full py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors font-semibold"
@@ -530,7 +471,6 @@ export default function CheckInPage() {
           )}
         </div>
       )}
-
       <BottomNav dark showCheckin />
     </div>
   );
