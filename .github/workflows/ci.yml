@@ -55,6 +55,7 @@ jobs:
 
     env:
       NODE_ENV: test
+      TZ: Asia/Ho_Chi_Minh
       SUPABASE_URL: https://example.supabase.co
       SUPABASE_SECRET_KEY: ci-only-placeholder
       JWT_SECRET: ci-only-test-secret-32-characters-long
