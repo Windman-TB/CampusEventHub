@@ -52,7 +52,8 @@ export default function ParticipantsPage() {
 
   // Danh sách người tham gia
   const [participants, setParticipants] = useState([]);
-  const [loadingParticipants, setLoadingParticipants] = useState(false);
+  // Loaded key tracks which filter/page result is currently displayed.
+  const [loadedRequestKey, setLoadedRequestKey] = useState('');
   const [participantsMeta, setParticipantsMeta] = useState({ total: 0, page: 1, limit: 15, totalPages: 1 });
 
   // Filters & Search
@@ -65,10 +66,10 @@ export default function ParticipantsPage() {
   const [exportingFormat, setExportingFormat] = useState(null); // 'csv' | 'xlsx' | null
   const [updatingTicketId, setUpdatingTicketId] = useState(null);
 
-  const showToast = (message, type = 'success') => {
+  const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
-  };
+  }, []);
 
   // 1. Tải danh sách sự kiện của BTC
   useEffect(() => {
@@ -87,37 +88,43 @@ export default function ParticipantsPage() {
     loadEvents();
   }, []);
 
-  // 2. Tải danh sách người tham gia của sự kiện được chọn
-  const loadParticipants = useCallback(
-    async (eventId, p = page, st = statusFilter, kw = search) => {
-      if (!eventId) return;
-      setLoadingParticipants(true);
-      try {
-        const res = await fetchParticipants(eventId, {
-          status: st !== 'all' ? st : undefined,
-          search: kw.trim() || undefined,
-          page: p,
-          limit: 15,
-        });
-
-        setParticipants(res.data || []);
-        if (res.meta) {
-          setParticipantsMeta(res.meta);
-        }
-      } catch (err) {
-        showToast(err.message || 'Không thể tải danh sách người tham gia', 'error');
-      } finally {
-        setLoadingParticipants(false);
-      }
-    },
-    [page, statusFilter, search]
-  );
+  // 2. Fetch participants whenever event/filter/page changes.
+  // Request identity avoids showing stale rows during a new fetch.
+  const requestKey = selectedEventId
+    ? JSON.stringify([selectedEventId, page, statusFilter, search])
+    : '';
+  const loadingParticipants = Boolean(selectedEventId) && loadedRequestKey !== requestKey;
 
   useEffect(() => {
-    if (selectedEventId) {
-      loadParticipants(selectedEventId, page, statusFilter, search);
-    }
-  }, [selectedEventId, page, statusFilter, search, loadParticipants]);
+    if (!selectedEventId) return undefined;
+
+    let cancelled = false;
+
+    fetchParticipants(selectedEventId, {
+      status: statusFilter === 'all' ? 'all' : statusFilter,
+      search: search.trim(),
+      page,
+      limit: 15,
+    })
+      .then((res) => {
+        if (cancelled) return;
+        const list = Array.isArray(res?.data) ? res.data : [];
+        setParticipants(list);
+        setParticipantsMeta(res?.meta || {
+          total: list.length, page, limit: 15, totalPages: 1,
+        });
+        setLoadedRequestKey(requestKey);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setParticipants([]);
+        setParticipantsMeta({ total: 0, page, limit: 15, totalPages: 1 });
+        setLoadedRequestKey(requestKey);
+        showToast(err?.message || 'Không thể tải danh sách người tham gia', 'error');
+      });
+
+    return () => { cancelled = true; };
+  }, [selectedEventId, page, statusFilter, search, requestKey, showToast]);
 
   // Handler đổi trạng thái vé thủ công (ví dụ Check-in tay cho sinh viên)
   const handleCheckInManual = async (ticketId, currentStatus) => {

@@ -62,6 +62,7 @@ export default function ProfilePage() {
 
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [reloadProfileKey, setReloadProfileKey] = useState(0);
   const [saving, setSaving] = useState(false);
 
   const [error, setError] = useState("");
@@ -97,51 +98,39 @@ export default function ProfilePage() {
   // GET /api/profile
   // ==================================================
 
-  async function loadProfile() {
-    try {
-      setLoading(true);
-      setError("");
+  useEffect(() => {
+    let cancelled = false;
 
-      const result = await apiFetch(
-        "/api/profile"
-      );
+    apiFetch('/api/profile')
+      .then((result) => {
+        if (cancelled) return;
+        const profile = result?.data;
+        if (!profile) {
+          throw new Error('Không nhận được dữ liệu hồ sơ từ máy chủ.');
+        }
 
-      const profile = result?.data;
-
-      if (!profile) {
-        throw new Error(
-          "Không nhận được dữ liệu hồ sơ từ máy chủ."
-        );
-      }
-
-      setUser(profile);
-
-      setDraft({
-        ho_ten: profile.ho_ten || "",
-        sdt: profile.sdt || "",
-        khoa: profile.khoa || "",
+        setUser(profile);
+        setDraft({
+          ho_ten: profile.ho_ten || '',
+          sdt: profile.sdt || '',
+          khoa: profile.khoa || '',
+        });
+        setAvatarDraft(profile.avatar_url || '');
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err?.message || 'Không thể tải hồ sơ cá nhân.');
+        if (err?.status === 401) {
+          clearAuthSession();
+          navigate('/login', { replace: true });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
 
-      setAvatarDraft(
-        profile.avatar_url || ""
-      );
-    } catch (err) {
-      setError(
-        err?.message ||
-          "Không thể tải hồ sơ cá nhân."
-      );
-
-      if (err?.status === 401) {
-        handleLogout();
-      }
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadProfile();
-  }, []);
+    return () => { cancelled = true; };
+  }, [navigate, reloadProfileKey]);
 
   // ==================================================
   // Edit profile
@@ -398,7 +387,11 @@ export default function ProfilePage() {
 
             <button
               type="button"
-              onClick={loadProfile}
+              onClick={() => {
+                setLoading(true);
+                setError('');
+                setReloadProfileKey((key) => key + 1);
+              }}
               className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold"
             >
               Thử lại

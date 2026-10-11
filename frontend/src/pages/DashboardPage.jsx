@@ -3,125 +3,98 @@ import { useEffect, useState } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import StatCard from '../components/dashboard/StatCard';
 import DashboardChart from '../components/dashboard/DashboardChart';
-
-import {
-  fetchDashboardOverview,
-  fetchEventAnalytics,
-} from '../services/dashboard.api.js';
-
-import {
-  fetchOrganizerEvents,
-} from '../services/api.js';
+import { fetchDashboardOverview, fetchEventAnalytics } from '../services/dashboard.api.js';
+import { fetchOrganizerEvents } from '../services/api.js';
 
 export default function DashboardPage() {
-  // =========================================================
-  // OVERVIEW
-  // =========================================================
+  // Keep the response associated with its filter to prevent stale data in the UI.
+  // This removes synchronous setState calls from the body of useEffect.
   const [dateRange, setDateRange] = useState('month');
+  const [overviewResult, setOverviewResult] = useState({
+    range: '',
+    data: null,
+    error: '',
+  });
 
-  const [overview, setOverview] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const overview = overviewResult.range === dateRange ? overviewResult.data : null;
+  const loading = overviewResult.range !== dateRange;
+  const error = overviewResult.range === dateRange ? overviewResult.error : '';
 
-  // =========================================================
-  // EVENT ANALYTICS
-  // =========================================================
   const [events, setEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [eventsError, setEventsError] = useState('');
-
   const [selectedEventId, setSelectedEventId] = useState('');
 
-  const [analytics, setAnalytics] = useState(null);
-  const [analyticsLoading, setAnalyticsLoading] = useState(false);
-  const [analyticsError, setAnalyticsError] = useState('');
+  const [analyticsResult, setAnalyticsResult] = useState({
+    eventId: '',
+    data: null,
+    error: '',
+  });
 
-  // =========================================================
-  // 1. LOAD DASHBOARD OVERVIEW
-  // =========================================================
+  const analyticsIsCurrent =
+    Boolean(selectedEventId) && analyticsResult.eventId === selectedEventId;
+  const analytics = analyticsIsCurrent ? analyticsResult.data : null;
+  const analyticsError = analyticsIsCurrent ? analyticsResult.error : '';
+  const analyticsLoading = Boolean(selectedEventId) && !analyticsIsCurrent;
+
+  // 1. Load dashboard overview when the time range changes.
   useEffect(() => {
     let cancelled = false;
 
     async function loadDashboard() {
       try {
-        setLoading(true);
-        setError('');
-
         const response = await fetchDashboardOverview(dateRange);
-
         if (!cancelled) {
-          setOverview(response?.data ?? null);
+          setOverviewResult({
+            range: dateRange,
+            data: response?.data ?? null,
+            error: '',
+          });
         }
       } catch (err) {
         console.error('Load dashboard error:', err);
-
         if (!cancelled) {
-          setOverview(null);
-
-          setError(
-            err.message ||
-              'Không thể tải dữ liệu dashboard'
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
+          setOverviewResult({
+            range: dateRange,
+            data: null,
+            error: err?.message || 'Không thể tải dữ liệu dashboard',
+          });
         }
       }
     }
 
-    loadDashboard();
-
+    void loadDashboard();
     return () => {
       cancelled = true;
     };
   }, [dateRange]);
 
-  // =========================================================
-  // 2. LOAD DANH SÁCH SỰ KIỆN CỦA BTC
-  // =========================================================
+  // 2. Get organizer events; preserve a valid selection if events reload.
   useEffect(() => {
     let cancelled = false;
 
     async function loadEvents() {
       try {
-        setEventsLoading(true);
-        setEventsError('');
-
         const response = await fetchOrganizerEvents();
+        if (cancelled) return;
 
-        const eventList = Array.isArray(response?.data)
-          ? response.data
-          : [];
-
-        if (cancelled) {
-          return;
-        }
-
+        const eventList = Array.isArray(response?.data) ? response.data : [];
         setEvents(eventList);
-
-        if (eventList.length > 0) {
-          setSelectedEventId(
-            String(eventList[0].ma_su_kien)
-          );
-        } else {
-          setSelectedEventId('');
-          setAnalytics(null);
-        }
+        setEventsError('');
+        setSelectedEventId((current) => {
+          if (eventList.some((event) => String(event.ma_su_kien) === current)) {
+            return current;
+          }
+          return eventList[0]?.ma_su_kien != null
+            ? String(eventList[0].ma_su_kien)
+            : '';
+        });
       } catch (err) {
-        console.error(
-          'Load organizer events error:',
-          err
-        );
-
+        console.error('Load organizer events error:', err);
         if (!cancelled) {
           setEvents([]);
           setSelectedEventId('');
-
-          setEventsError(
-            err.message ||
-              'Không thể tải danh sách sự kiện'
-          );
+          setEventsError(err?.message || 'Không thể tải danh sách sự kiện');
         }
       } finally {
         if (!cancelled) {
@@ -130,62 +103,42 @@ export default function DashboardPage() {
       }
     }
 
-    loadEvents();
-
+    void loadEvents();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  // =========================================================
-  // 3. LOAD ANALYTICS THEO EVENT ĐƯỢC CHỌN
-  // =========================================================
+  // 3. Fetch analytics for the selected event. Previous responses are ignored
+  // when the event changes or this page unmounts.
   useEffect(() => {
-    if (!selectedEventId) {
-      setAnalytics(null);
-      setAnalyticsError('');
-      return undefined;
-    }
+    if (!selectedEventId) return undefined;
 
     let cancelled = false;
 
     async function loadAnalytics() {
       try {
-        setAnalyticsLoading(true);
-        setAnalyticsError('');
-        setAnalytics(null);
-
-        const response =
-          await fetchEventAnalytics(
-            selectedEventId
-          );
-
+        const response = await fetchEventAnalytics(selectedEventId);
         if (!cancelled) {
-          setAnalytics(response?.data ?? null);
+          setAnalyticsResult({
+            eventId: selectedEventId,
+            data: response?.data ?? null,
+            error: '',
+          });
         }
       } catch (err) {
-        console.error(
-          'Load event analytics error:',
-          err
-        );
-
+        console.error('Load event analytics error:', err);
         if (!cancelled) {
-          setAnalytics(null);
-
-          setAnalyticsError(
-            err.message ||
-              'Không thể tải dữ liệu phân tích sự kiện'
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setAnalyticsLoading(false);
+          setAnalyticsResult({
+            eventId: selectedEventId,
+            data: null,
+            error: err?.message || 'Không thể tải dữ liệu phân tích sự kiện',
+          });
         }
       }
     }
 
-    loadAnalytics();
-
+    void loadAnalytics();
     return () => {
       cancelled = true;
     };
@@ -194,7 +147,6 @@ export default function DashboardPage() {
   return (
     <DashboardLayout>
       <div className="p-6 lg:p-8 max-w-screen-2xl">
-
         {/* =====================================================
             HEADER
         ===================================================== */}
@@ -209,7 +161,6 @@ export default function DashboardPage() {
             >
               Tổng quan hệ thống
             </h1>
-
             <p
               className="text-sm mt-1"
               style={{ color: '#64748b' }}
@@ -217,7 +168,6 @@ export default function DashboardPage() {
               Theo dõi các số liệu hoạt động chính
             </p>
           </div>
-
           {/* TIME RANGE */}
           <div className="flex items-center gap-2">
             <span
@@ -226,12 +176,13 @@ export default function DashboardPage() {
             >
               Thời gian:
             </span>
-
             <select
               value={dateRange}
-              onChange={(e) =>
-                setDateRange(e.target.value)
-              }
+              onChange={(e) => {
+                // Invalidate the previous result before requesting another range.
+                setOverviewResult({ range: '', data: null, error: '' });
+                setDateRange(e.target.value);
+              }}
               className="px-3 py-2 rounded-xl text-sm font-medium border outline-none bg-white transition-colors hover:bg-slate-50 cursor-pointer"
               style={{
                 borderColor: '#e2e8f0',
@@ -241,22 +192,18 @@ export default function DashboardPage() {
               <option value="today">
                 Hôm nay
               </option>
-
               <option value="week">
                 Tuần này
               </option>
-
               <option value="month">
                 Tháng này
               </option>
-
               <option value="year">
                 Năm học
               </option>
             </select>
           </div>
         </div>
-
         {/* =====================================================
             OVERVIEW ERROR
         ===================================================== */}
@@ -265,12 +212,10 @@ export default function DashboardPage() {
             {error}
           </div>
         )}
-
         {/* =====================================================
             STAT CARDS
         ===================================================== */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
-
           {/* TOTAL EVENTS */}
           <StatCard
             icon={
@@ -289,7 +234,6 @@ export default function DashboardPage() {
             color="#4f46e5"
             bg="#eef2ff"
           />
-
           {/* TOTAL REGISTRATIONS */}
           <StatCard
             icon={
@@ -308,7 +252,6 @@ export default function DashboardPage() {
             color="#0891b2"
             bg="#ecfeff"
           />
-
           {/* FILL RATE */}
           <StatCard
             icon={
@@ -327,7 +270,6 @@ export default function DashboardPage() {
             color="#d97706"
             bg="#fef3c7"
           />
-
           {/* CHECK-IN RATE */}
           <StatCard
             icon={
@@ -347,7 +289,6 @@ export default function DashboardPage() {
             bg="#dcfce7"
           />
         </div>
-
         {/* =====================================================
             EVENT ANALYTICS HEADER
         ===================================================== */}
@@ -362,7 +303,6 @@ export default function DashboardPage() {
             >
               Phân tích sự kiện
             </h2>
-
             <p
               className="text-sm mt-1"
               style={{ color: '#64748b' }}
@@ -370,7 +310,6 @@ export default function DashboardPage() {
               Xem thống kê chi tiết theo từng sự kiện
             </p>
           </div>
-
           {/* EVENT SELECT */}
           <div className="flex items-center gap-2">
             <span
@@ -379,14 +318,13 @@ export default function DashboardPage() {
             >
               Sự kiện:
             </span>
-
             <select
               value={selectedEventId}
-              onChange={(e) =>
-                setSelectedEventId(
-                  e.target.value
-                )
-              }
+              onChange={(e) => {
+                setSelectedEventId(e.target.value);
+                // Reset cached analytics to avoid briefly showing an old event.
+                setAnalyticsResult({ eventId: '', data: null, error: '' });
+              }}
               disabled={
                 eventsLoading ||
                 events.length === 0
@@ -402,14 +340,12 @@ export default function DashboardPage() {
                   Đang tải sự kiện...
                 </option>
               )}
-
               {!eventsLoading &&
                 events.length === 0 && (
                   <option value="">
                     Chưa có sự kiện
                   </option>
                 )}
-
               {!eventsLoading &&
                 events.map((event) => (
                   <option
@@ -422,7 +358,6 @@ export default function DashboardPage() {
             </select>
           </div>
         </div>
-
         {/* =====================================================
             EVENT LIST ERROR
         ===================================================== */}
@@ -431,7 +366,6 @@ export default function DashboardPage() {
             {eventsError}
           </div>
         )}
-
         {/* =====================================================
             ANALYTICS ERROR
         ===================================================== */}
@@ -440,7 +374,6 @@ export default function DashboardPage() {
             {analyticsError}
           </div>
         )}
-
         {/* =====================================================
             ANALYTICS CONTENT
         ===================================================== */}
@@ -473,7 +406,6 @@ export default function DashboardPage() {
                 : 'Chưa có dữ liệu phân tích.'}
           </div>
         )}
-
       </div>
     </DashboardLayout>
   );
