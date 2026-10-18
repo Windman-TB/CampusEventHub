@@ -36,16 +36,16 @@ function getEventWindow(event) {
     endsAt: buildVietnamDateTime(event.ngay_dien_ra, event.thoi_gian_ket_thuc),
   };
 }
-
 function isCheckInWindowOpen(event, now = new Date()) {
   const { startsAt, endsAt } = getEventWindow(event);
 
   if (!startsAt || !endsAt) return false;
   if (!SCANNABLE_EVENT_STATUSES.has(event.trang_thai_su_kien)) return false;
 
-  return now >= startsAt && now < endsAt;
-}
+  const opensAt = new Date(startsAt.getTime() - 90 * 60 * 1000);
 
+  return now >= opensAt && now < endsAt;
+}
 function mapAssignedEvent(event, now = new Date()) {
   const checkInWindowOpen = isCheckInWindowOpen(event, now);
 

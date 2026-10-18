@@ -73,7 +73,7 @@ BEGIN
     v_end_at := v_event.ngay_dien_ra + v_event.thoi_gian_ket_thuc;
 
     IF v_event.trang_thai_su_kien IN ('BanNhap', 'DaKetThuc')
-       OR v_now_local < v_start_at
+       OR v_now_local < (v_start_at - INTERVAL '90 minutes')
        OR v_now_local >= v_end_at THEN
         RETURN jsonb_build_object('success', FALSE, 'code', 'CHECK_IN_CLOSED');
     END IF;

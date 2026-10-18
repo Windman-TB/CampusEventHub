@@ -26,7 +26,7 @@ async function main() {
       result
     );
 
-    process.exitCode = 0;
+    process.exitCode = result.failed > 0 ? 1 : 0;
   } catch (error) {
     console.error(
       '[Reminder Runner] Thất bại:',

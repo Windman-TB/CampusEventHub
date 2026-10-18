@@ -60,7 +60,7 @@ export default function CheckInPage() {
       const assignedEvents = response.data || [];
       const now = new Date();
       const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      const todayEvents = assignedEvents.filter(e => e.ngay_dien_ra === todayStr);
+      const todayEvents = assignedEvents.filter(e => e.ngay_dien_ra === todayStr || e.canScan);
       setEvents(todayEvents);
       setSelectedEventId((current) => {
         if (todayEvents.some((event) => String(event.ma_su_kien) === String(current))) {
