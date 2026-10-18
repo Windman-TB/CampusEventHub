@@ -402,7 +402,7 @@ export default function StaffPage() {
                         {s.khoa || 'Chưa cập nhật'}
                       </td>
                       <td className="px-5 py-4 text-xs text-slate-500">
-                        {s.thoi_gian_tao ? new Date(s.thoi_gian_tao).toLocaleString('vi-VN') : '—'}
+                        {s.thoi_gian_tao? new Date(s.thoi_gian_tao).toLocaleString('vi-VN', {timeZone: 'Asia/Ho_Chi_Minh',}): '—'}
                       </td>
                       <td className="px-5 py-4">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700">
