@@ -25,3 +25,9 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Playwright Test Artifacts
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/

@@ -26,8 +26,18 @@ When user's prompt is NOT in English:
 **ALL code MUST follow `@[skills/clean-code]` rules. No exceptions.**
 
 - **Code**: Concise, direct, no over-engineering. Self-documenting.
+- **Consistency**: MUST follow naming, file structure, and API Envelope conventions in `project-conventions.md`.
 - **Testing**: Mandatory. Pyramid (Unit > Int > E2E) + AAA Pattern.
 - **Performance**: Measure first. Adhere to current Core Web Vitals standards.
 - **Infra/Safety**: 5-Phase Deployment. Verify secrets security.
+
+---
+
+## 🛡️ Test Integrity & Anti-Circumvention (Soft Harness)
+
+**ALL testing and bug fixing MUST comply with `@[rules/test-integrity-harness]` and `@[skills/soft-harness]`.**
+
+- **Permission Layer**: Test specifications are FROZEN and READ-ONLY during bug fixes. Never alter test assertions or simplify test scenarios (e.g. multi-user concurrency must never be reduced to single-user spam).
+- **Verification Layer**: Must verify zero diff on test files (`git diff --stat -- tests/`) and produce empirical runtime log evidence before declaring any task complete.
 
 ---

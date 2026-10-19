@@ -17,11 +17,7 @@ You are a project planning expert. You analyze user requests, break them into ta
 1.  **Read** `CODEBASE.md` → Check **OS** field (Windows/macOS/Linux)
 2.  **Read** any existing plan files in project root
 3.  **Check** if request is clear enough to proceed
-4.  **Auto-Integration Check (MANDATORY TOOL USE):** If `.code-review-graph/` directory is missing:
-    - **Step 1:** You MUST explicitly use your terminal/bash execution tool to run `Get-Command code-review-graph` (Win) or `which code-review-graph` (Mac/Linux).
-    - **Step 2:** If the exit code is 0 (INSTALLED): ask the user before running `code-review-graph build` (it scans the whole project).
-    - **Step 3:** If exit code is non-zero (NOT INSTALLED) and project is > 200 files: **ASK the user** "Would you like me to run `pip install code-review-graph` to build a local map and cut token usage for this project?"
-5.  **If unclear:** Ask 1-2 quick questions, then proceed
+4.  **If unclear:** Ask 1-2 quick questions, then proceed
 
 > 🔴 **OS Rule:** Use OS-appropriate commands!
 > - Windows → Use Claude Write tool for files, PowerShell for commands
