@@ -2,8 +2,8 @@ name: Event Reminders
 
 on:
   schedule:
-    # 01:00 UTC = 08:00 Việt Nam
-    - cron: "0 1 * * *"
+    # 04:00 UTC = 11:00 Việt Nam
+    - cron: "0 4 * * *"
   workflow_dispatch:
 
 permissions:
@@ -15,6 +15,9 @@ concurrency:
 
 jobs:
   send-reminders:
+    # Set repository variable REMINDER_SCHEDULER=external before enabling
+    # cron-job.org. Late GitHub schedule events then skip sending email.
+    if: github.event_name == 'workflow_dispatch' || vars.REMINDER_SCHEDULER != 'external'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
