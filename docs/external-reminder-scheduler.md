@@ -1,12 +1,12 @@
 # Nhắc lịch bằng cron-job.org và GitHub Actions
 
-cron-job.org gọi API GitHub lúc 08:00 Việt Nam. GitHub chạy workflow
+cron-job.org gọi API GitHub lúc 11:00 Việt Nam. GitHub chạy workflow
 `Event Reminders`, đọc Supabase và gửi mail bằng Brevo như lượt chạy thủ công
 đã kiểm tra. Không cần deploy lại Render/Vercel hoặc cung cấp khóa Supabase,
 Brevo cho cron-job.org.
 
 Cách này thay bộ kích hoạt theo giờ của GitHub; runner GitHub vẫn có thể phải
-chờ. Không bảo đảm mail tới đúng giây 08:00.
+chờ. Không bảo đảm mail tới đúng giây 11:00.
 
 ## 1. Chuẩn bị trên GitHub
 
@@ -30,11 +30,11 @@ Không gửi token trong chat, đưa vào URL, hoặc commit vào source.
 
 | Trường | Giá trị |
 | --- | --- |
-| Title | Campus Event Hub - reminder 08h |
+| Title | Campus Event Hub - reminder 11h |
 | URL | `https://api.github.com/repos/Windman-TB/CampusEventHub/actions/workflows/event-reminders.yml/dispatches` |
 | Enabled | Tắt trong lúc cấu hình |
 | Timezone | `Asia/Ho_Chi_Minh` |
-| Schedule | Mỗi ngày lúc `08:00` (cron: `0 8 * * *`) |
+| Schedule | Mỗi ngày lúc `11:00` (cron: `0 11 * * *`) |
 | Request method | `POST` |
 | Request body | `{"ref":"main"}` |
 
@@ -85,7 +85,7 @@ Nếu request timeout, xem Actions trước khi thử lại vì GitHub có thể
 ## Quay lại lịch GitHub
 
 Tắt job cron-job.org trước, chờ các lượt đang chạy hoàn tất, sau đó đổi
-`REMINDER_SCHEDULER` thành `github` hoặc xóa variable. Lịch GitHub là 08:00
+`REMINDER_SCHEDULER` thành `github` hoặc xóa variable. Lịch GitHub là 11:00
 Việt Nam, nhưng có thể chậm hoặc bỏ lượt khi tải cao.
 
 ## Tài liệu

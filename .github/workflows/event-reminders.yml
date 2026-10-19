@@ -2,8 +2,8 @@ name: Event Reminders
 
 on:
   schedule:
-    # 01:00 UTC = 08:00 Việt Nam
-    - cron: "0 1 * * *"
+    # 04:00 UTC = 11:00 Việt Nam
+    - cron: "0 4 * * *"
   workflow_dispatch:
 
 permissions:
