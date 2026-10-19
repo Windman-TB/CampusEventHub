@@ -15,6 +15,9 @@ concurrency:
 
 jobs:
   send-reminders:
+    # Set repository variable REMINDER_SCHEDULER=external before enabling
+    # cron-job.org. Late GitHub schedule events then skip sending email.
+    if: github.event_name == 'workflow_dispatch' || vars.REMINDER_SCHEDULER != 'external'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
