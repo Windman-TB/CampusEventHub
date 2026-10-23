@@ -8,3 +8,5 @@
 - [project] CampusEventHub design system and visual tokens (Indigo #4f46e5 brand, Outfit/Inter typography) → ../../DESIGN.md
 - [project] AI Soft Harness (Permission & Verification layers against Test Circumvention) → project-conventions.md
 - [project] CampusEventHub Coding Conventions (Naming, file structure, unified API Envelope) → project-conventions.md
+- [project] Main Project Specification & Quick Context (Laravel 11, MySQL, 34 Use Cases) → ../../docs-main-project/QUICK_CONTEXT.md
+- [feedback] AI Agent scope refinement (Drop Student AI, keep Organizer Content/Data & Admin BI) → feedback-history.md

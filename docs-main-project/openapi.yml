@@ -1,0 +1,2665 @@
+openapi: 3.0.3
+info:
+  title: Campus Event Hub API Contract
+  version: 3.1.2
+  description: |
+    # Campus Event Hub — Enterprise API Specification (SSOT Baseline v3.1.2)
+    Đồ án Môn học: Phát triển Ứng dụng Web (IS207.R11) – Khoa Hệ thống Thông tin, Trường ĐH Công nghệ Thông tin (UIT).
+
+    Tài liệu đặc tả toàn diện chuẩn OpenAPI 3.0.3 ánh xạ 1-1 với:
+    - **SRS v3.1.2** (`docs-main-project/srs_v3.1.2.md`): 32 Use Cases trên 11 Phân hệ nghiệp vụ.
+    - **Database Design v3.1.2** (`docs-main-project/database_design_v3.1.2.md` & `database_v3.1.2_mysql.sql`): 24 Bảng 3NF, 3 Views.
+    - **Quy tắc Bất biến Toàn cục:** Khóa dòng 6 cấp (`tai_khoan -> phong -> dat_phong -> su_kien -> dang_ky -> hang_doi_waitlist`), TOTP 30s Kiosk, HMAC-SHA256, Chốt hủy vé $T-4\text{h}$, Đóng Waitlist $T-2\text{h}$, Chốt Check-out $T_{end}-25\text{m}$, Che mờ PII Nghị định 13/2023/NĐ-CP.
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local Development Server (Laravel 11)
+  - url: https://campuseventhub.uit.edu.vn/api/v1
+    description: Production Environment
+tags:
+  - name: Auth & Account
+    description: Xác thực, Đăng ký OTP, Đăng nhập Single Active Session, Hồ sơ (UC-AUTH-01 -> 05)
+  - name: Admin & Organizations
+    description: Quản trị Cây Đơn vị Tổ chức & Cấp phát User Nội bộ (UC-ADM-01)
+  - name: Venues & Room Schedules
+    description: Quản lý Phòng ốc & Kiểm tra Xung đột Lịch đệm 15p (UC-ROOM-01, UC-ROOM-02)
+  - name: Event Lifecycle & Approvals
+    description: Khởi tạo, Soft Hold 48h Co-host, Duyệt Đa cấp Host-driven, Hủy khẩn cấp (UC-EVT-01 -> 03)
+  - name: Event Discovery
+    description: Khám phá, Tìm kiếm Full-Text & Thẻ OpenGraph (UC-DISC-01, UC-DISC-02)
+  - name: Booking & Waitlist
+    description: Đặt vé Tương tranh, Chống trùng lịch cá nhân, Waitlist FIFO & Claim Window (UC-BOOK-01 -> 03)
+  - name: My Tickets & Cancellation
+    description: Quản lý Vé Cá nhân, Screen Wake Lock & Khóa Hủy vé T-4h (UC-TCK-01, UC-TCK-02)
+  - name: Attendance & Anti-Fraud
+    description: Kiosk Dynamic TOTP 30s, Soát vé HMAC Staff, Check-in/out 2 chiều, Device Binding (UC-OPS-01 -> 05)
+  - name: Feedback, Certificate & DRL
+    description: Khảo sát 48h, e-Certificate SHA-256 Che PII, Khóa chốt Bảng ĐRL CTSV (UC-FEED-01, UC-CERT-01, UC-DRL-01)
+  - name: Reports & Notifications
+    description: Dashboard BTC, BI Vĩ mô Toàn trường, Thông báo In-app & Email 24h (UC-REP-01, UC-REP-02, UC-NOTIF-01)
+  - name: AI Assistant
+    description: Organizer Content & Analytics Copilot, Admin BI Text-to-Insight Read-Only (UC-AI-01, UC-AI-02)
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Auth & Account
+      summary: Đăng ký tài khoản Sinh viên (Email OTP & Đối chiếu MSSV)
+      description: |
+        - Ánh xạ: `UC-AUTH-01`
+        - Ràng buộc: Email phải có đuôi `@gm.uit.edu.vn`. Tiền tố email bắt buộc khớp chính xác với MSSV (8 chữ số).
+        - Bắt buộc đồng thuận Nghị định 13/2023/NĐ-CP.
+        - Mật khẩu băm Bcrypt (cost 12), sinh OTP 6 số lưu bảng đệm `dang_ky_tam_thoi`.
+      operationId: registerStudent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ho_ten
+                - mssv
+                - email
+                - mat_khau
+                - xac_nhan_mat_khau
+                - dong_y_nghi_dinh_13
+              properties:
+                ho_ten:
+                  type: string
+                  example: Nguyễn Văn An
+                mssv:
+                  type: string
+                  pattern: ^[0-9]{8}$
+                  example: '22520001'
+                email:
+                  type: string
+                  format: email
+                  example: 22520001@gm.uit.edu.vn
+                so_dien_thoai:
+                  type: string
+                  pattern: ^[0-9]{10}$
+                  example: '0901234567'
+                lop_sinh_hoat:
+                  type: string
+                  example: HTTT2022
+                ma_khoa:
+                  type: integer
+                  example: 1
+                  description: Khóa ngoại trỏ đến `don_vi_to_chuc` (Khoa)
+                mat_khau:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: MatKhau@123
+                xac_nhan_mat_khau:
+                  type: string
+                  format: password
+                  example: MatKhau@123
+                dong_y_nghi_dinh_13:
+                  type: boolean
+                  example: true
+      responses:
+        '200':
+          description: Đã gửi mã OTP kích hoạt đến email trường
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessMessage'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /auth/verify-registration-otp:
+    post:
+      tags:
+        - Auth & Account
+      summary: Xác thực OTP hoàn tất đăng ký tài khoản
+      description: Kiểm tra mã OTP 6 số trong vòng 10 phút. Nếu hợp lệ, ghi vào bảng `tai_khoan`.
+      operationId: verifyRegistrationOtp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - otp
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: 22520001@gm.uit.edu.vn
+                otp:
+                  type: string
+                  pattern: ^[0-9]{6}$
+                  example: '123456'
+      responses:
+        '201':
+          description: Tài khoản đã kích hoạt thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Tài khoản kích hoạt thành công
+                  data:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+  /auth/login:
+    post:
+      tags:
+        - Auth & Account
+      summary: Đăng nhập hệ thống (Single Active Session cho SV)
+      description: |
+        - Ánh xạ: `UC-AUTH-02`
+        - Hủy phiên cũ ngay lập tức nếu vai trò là `SinhVien` (Single Active Session).
+        - Trả về Bearer Token / Sanctum Cookie.
+        - Kiểm tra cờ `buoc_doi_mat_khau`.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - mat_khau
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: 22520001@gm.uit.edu.vn
+                mat_khau:
+                  type: string
+                  format: password
+                  example: MatKhau@123
+      responses:
+        '200':
+          description: Đăng nhập thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        example: 1|laravelsanctumtoken123456
+                      user:
+                        $ref: '#/components/schemas/User'
+                      buoc_doi_mat_khau:
+                        type: boolean
+                        example: false
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+  /auth/logout:
+    post:
+      tags:
+        - Auth & Account
+      summary: Đăng xuất & Thu hồi phiên làm việc tức thì
+      description: Ánh xạ `UC-AUTH-05`. Thu hồi token hiện tại trong `personal_access_tokens` / xóa bản ghi `sessions`.
+      operationId: logout
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Đăng xuất thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessMessage'
+  /auth/me:
+    get:
+      tags:
+        - Auth & Account
+      summary: Lấy thông tin tài khoản đang đăng nhập
+      operationId: getProfile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/User'
+          description: Thao tác thành công
+  /auth/profile:
+    put:
+      tags:
+        - Auth & Account
+      summary: Cập nhật thông tin hồ sơ cá nhân
+      description: Ánh xạ `UC-AUTH-03`. Sinh viên chỉ được sửa SĐT, avatar. MSSV và Email bị khóa.
+      operationId: updateProfile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                so_dien_thoai:
+                  type: string
+                  pattern: ^[0-9]{10}$
+                avatar_url:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessMessage'
+          description: Thao tác thành công
+  /auth/change-password:
+    post:
+      tags:
+        - Auth & Account
+      summary: Đổi mật khẩu tài khoản
+      description: Kiểm tra mật khẩu cũ, băm mật khẩu mới bằng Bcrypt, reset cờ `buoc_doi_mat_khau = 0`.
+      operationId: changePassword
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - mat_khau_cu
+                - mat_khau_moi
+                - xac_nhan_mat_khau_moi
+              properties:
+                mat_khau_cu:
+                  type: string
+                mat_khau_moi:
+                  type: string
+                  minLength: 8
+                xac_nhan_mat_khau_moi:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessMessage'
+          description: Thao tác thành công
+  /auth/forgot-password:
+    post:
+      tags:
+        - Auth & Account
+      summary: Yêu cầu OTP khôi phục mật khẩu
+      description: Ánh xạ `UC-AUTH-04`. Chống dò quét email, sinh OTP 6 số lưu vào `otp_quen_mat_khau`.
+      operationId: forgotPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessMessage'
+          description: Thao tác thành công
+  /auth/reset-password:
+    post:
+      tags:
+        - Auth & Account
+      summary: Đặt lại mật khẩu bằng mã OTP
+      operationId: resetPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - otp
+                - mat_khau_moi
+                - xac_nhan_mat_khau_moi
+              properties:
+                email:
+                  type: string
+                  format: email
+                otp:
+                  type: string
+                  pattern: ^[0-9]{6}$
+                mat_khau_moi:
+                  type: string
+                  minLength: 8
+                xac_nhan_mat_khau_moi:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessMessage'
+          description: Thao tác thành công
+  /admin/organizations:
+    get:
+      tags:
+        - Admin & Organizations
+      summary: Lấy danh sách cây đơn vị tổ chức
+      description: Trả về phân cấp Đơn vị (Khoa, CLB trực thuộc Khoa qua `ma_don_vi_cha`).
+      operationId: getOrganizations
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Organization'
+          description: Thao tác thành công
+    post:
+      tags:
+        - Admin & Organizations
+      summary: Tạo mới đơn vị tổ chức
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ten_don_vi
+                - ma_dinh_danh
+                - loai_don_vi
+              properties:
+                ten_don_vi:
+                  type: string
+                ma_dinh_danh:
+                  type: string
+                  example: CLB_WEBDEV
+                loai_don_vi:
+                  type: string
+                  enum:
+                    - CLB
+                    - DoanHoi
+                    - Khoa
+                    - PhongBan
+                ma_don_vi_cha:
+                  type: integer
+                  nullable: true
+                mo_ta:
+                  type: string
+                logo_url:
+                  type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Organization'
+          description: Khởi tạo tài nguyên thành công
+  /admin/users:
+    get:
+      tags:
+        - Admin & Organizations
+      summary: Quản trị danh sách người dùng toàn trường
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: vai_tro
+          in: query
+          schema:
+            type: string
+            enum:
+              - SinhVien
+              - ToChuc
+              - Admin
+        - name: ma_don_vi_to_chuc
+          in: query
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+          description: Thao tác thành công
+    post:
+      tags:
+        - Admin & Organizations
+      summary: Cấp phát tài khoản Cán bộ / Ban tổ chức nội bộ
+      description: Email bắt buộc `@uit.edu.vn`. Cờ `buoc_doi_mat_khau = 1`.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ho_ten
+                - email
+                - vai_tro
+                - ma_don_vi_to_chuc
+              properties:
+                ho_ten:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                  example: canbo@uit.edu.vn
+                vai_tro:
+                  type: string
+                  enum:
+                    - ToChuc
+                    - Admin
+                ma_don_vi_to_chuc:
+                  type: integer
+                so_dien_thoai:
+                  type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Tạo tài khoản nội bộ thành công. Mật khẩu tạm đã được gửi tới email.
+          description: Khởi tạo tài nguyên thành công
+  /rooms:
+    get:
+      tags:
+        - Venues & Room Schedules
+      summary: Lấy danh mục phòng học & hội trường
+      description: Ánh xạ `UC-ROOM-01`.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Room'
+          description: Thao tác thành công
+    post:
+      tags:
+        - Venues & Room Schedules
+      summary: Tạo mới phòng / hội trường (Admin)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ten_phong
+                - suc_chua_toi_da
+              properties:
+                ten_phong:
+                  type: string
+                  example: Hội trường A
+                vi_tri:
+                  type: string
+                  example: Tòa A - Tầng 1
+                suc_chua_toi_da:
+                  type: integer
+                  example: 300
+                co_may_chieu:
+                  type: boolean
+                  default: true
+                co_am_thanh:
+                  type: boolean
+                  default: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Room'
+          description: Khởi tạo tài nguyên thành công
+  /rooms/{id}/availability:
+    get:
+      tags:
+        - Venues & Room Schedules
+      summary: Kiểm tra tính khả dụng của phòng (Đệm an toàn 15 phút)
+      description: |
+        - Ánh xạ: `UC-ROOM-02`
+        - Tự động cộng đệm an toàn 15 phút trước và sau sự kiện:
+          `[bat_dau - 15m, ket_thuc + 15m]`.
+        - Loại trừ các bản ghi Soft Hold 48h đã hết hạn (`han_giu_cho_tam < NOW()`).
+        - Loại trừ chính sự kiện hiện hành nếu đang trong chế độ chỉnh sửa (`exclude_event_id`).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: thoi_gian_bat_dau
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: thoi_gian_ket_thuc
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: exclude_event_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      kha_dung:
+                        type: boolean
+                        example: true
+                      ly_do_xung_dot:
+                        type: string
+                        nullable: true
+                      su_kien_trung:
+                        type: object
+                        nullable: true
+                        properties:
+                          ma_su_kien:
+                            type: integer
+                          ten_su_kien:
+                            type: string
+                          thoi_gian_bat_dau:
+                            type: string
+                            format: date-time
+                          thoi_gian_ket_thuc:
+                            type: string
+                            format: date-time
+          description: Thao tác thành công
+  /events:
+    get:
+      tags:
+        - Event Discovery
+      summary: Tìm kiếm toàn văn & Lọc sự kiện đa tiêu chí
+      description: Ánh xạ `UC-DISC-01`. Hỗ trợ Full-Text Search, phân trang, lọc theo chuyên đề, trạng thái, thời gian.
+      parameters:
+        - name: q
+          in: query
+          description: Từ khóa tìm kiếm toàn văn
+          schema:
+            type: string
+        - name: ma_chuyen_de
+          in: query
+          schema:
+            type: integer
+        - name: ma_don_vi_to_chuc
+          in: query
+          schema:
+            type: integer
+        - name: trang_thai
+          in: query
+          schema:
+            type: string
+            enum:
+              - PUBLISHED
+              - HAPPENING
+              - COMPLETED
+        - name: tu_ngay
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: den_ngay
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 12
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EventCard'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+          description: Thao tác thành công
+    post:
+      tags:
+        - Event Lifecycle & Approvals
+      summary: Soạn thảo sự kiện mới (Bản nháp DRAFT)
+      description: |
+        - Ánh xạ: `UC-EVT-01`
+        - Bắt buộc kiểm tra sức chứa phòng: `so_luong_toi_da <= phong.suc_chua_toi_da` (khi `khong_gioi_han_slot = false`).
+        - Chọn danh sách đơn vị phối hợp (Co-hosts).
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ten_su_kien
+                - ma_chuyen_de
+                - ma_phong
+                - thoi_gian_bat_dau
+                - thoi_gian_ket_thuc
+                - han_chot_dang_ky
+                - diem_ren_luyen
+              properties:
+                ten_su_kien:
+                  type: string
+                mo_ta:
+                  type: string
+                ma_chuyen_de:
+                  type: integer
+                ma_phong:
+                  type: integer
+                khong_gioi_han_slot:
+                  type: boolean
+                  default: false
+                so_luong_toi_da:
+                  type: integer
+                  example: 100
+                thoi_gian_bat_dau:
+                  type: string
+                  format: date-time
+                thoi_gian_ket_thuc:
+                  type: string
+                  format: date-time
+                han_chot_dang_ky:
+                  type: string
+                  format: date-time
+                diem_ren_luyen:
+                  type: integer
+                  minimum: 1
+                  maximum: 20
+                  example: 5
+                anh_poster_url:
+                  type: string
+                danh_sach_co_host_ids:
+                  type: array
+                  items:
+                    type: integer
+                  description: Danh sách `ma_don_vi_to_chuc` của các đơn vị đồng tổ chức
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/EventDetail'
+          description: Khởi tạo tài nguyên thành công
+  /events/{id}/submit-approval:
+    post:
+      tags:
+        - Event Lifecycle & Approvals
+      summary: Gửi đề xuất phê duyệt (Soft Hold 48h Co-host & Host-driven Routing)
+      description: |
+        - Ánh xạ: `UC-EVT-02`
+        - Nếu có Co-host: Chuyển `WAITING_COHOST_CONFIRM`, tạo bản ghi giữ phòng tạm thời 48h (`han_giu_cho_tam = NOW() + 48h`).
+        - Nếu không có Co-host & Host là CLB cấp Khoa: Chuyển `PENDING_FACULTY`.
+        - Nếu không có Co-host & Host là Cấp Trường / Văn phòng Khoa: Chuyển thẳng `PENDING_ADMIN`.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessMessage'
+          description: Thao tác thành công
+        '409':
+          description: Xung đột lịch phòng hoặc không thỏa mãn trạng thái
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /events/{id}/co-host-respond:
+    post:
+      tags:
+        - Event Lifecycle & Approvals
+      summary: Đơn vị đồng tổ chức xác nhận phản hồi (Đồng ý / Từ chối)
+      description: |
+        - Ánh xạ: `UC-EVT-02`
+        - Nếu có 1 bên từ chối: Chuyển ngay sang `COHOST_REJECTED` và hủy Soft Hold phòng.
+        - Nếu 100% bên đồng ý: Tự động xóa `han_giu_cho_tam` và chuyển tiếp theo luồng Host-driven Routing.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - trang_thai_xac_nhan
+              properties:
+                trang_thai_xac_nhan:
+                  type: string
+                  enum:
+                    - DONG_Y
+                    - TU_CHOI
+                ly_do:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessMessage'
+          description: Thao tác thành công
+  /events/{id}/withdraw:
+    post:
+      tags:
+        - Event Lifecycle & Approvals
+      summary: Đơn vị chủ trì (Host A) chủ động rút đề xuất sự kiện
+      description: Ánh xạ `UC-EVT-02`, `UC-EVT-03`. Chuyển trạng thái từ `WAITING_COHOST_CONFIRM`, `PENDING_FACULTY` hoặc `PENDING_ADMIN` quay về `DRAFT`. Hủy Soft Hold phòng.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ly_do_rut
+              properties:
+                ly_do_rut:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessMessage'
+          description: Thao tác thành công
+  /events/{id}/review:
+    post:
+      tags:
+        - Event Lifecycle & Approvals
+      summary: Thẩm định phê duyệt sự kiện (Khoa / CTSV duyệt / Admin duyệt thay)
+      description: |
+        - Ánh xạ: `UC-EVT-02`, `UC-EVT-03`.
+        - Cấp Khoa: `PENDING_FACULTY` -> `PENDING_ADMIN` (Duyệt) hoặc `REJECTED` (Từ chối).
+        - Cấp Trường: `PENDING_ADMIN` -> `APPROVED` (xác nhận `dat_phong = CONFIRMED`).
+        - Admin có quyền duyệt thay Khoa (`PENDING_FACULTY` -> `APPROVED`).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - hanh_dong
+              properties:
+                hanh_dong:
+                  type: string
+                  enum:
+                    - PHE_DUYET
+                    - TU_CHOI
+                    - YEU_CAU_CHINH_SUA
+                ghi_chu_kiem_duyet:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessMessage'
+          description: Thao tác thành công
+  /events/{id}/emergency-cancel:
+    post:
+      tags:
+        - Event Lifecycle & Approvals
+      summary: Hủy sự kiện khẩn cấp (Host A hoặc Admin)
+      description: |
+        - Ánh xạ: `UC-EVT-03`.
+        - Áp dụng khi sự kiện ở trạng thái `APPROVED` hoặc `PUBLISHED`.
+        - Tuân thủ thứ tự khóa dòng triệt tiêu deadlock.
+        - Chuyển trạng thái `CANCELLED`, giải phóng `dat_phong`, hủy toàn bộ vé và xếp hàng gửi email broadcast.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ly_do_huy
+              properties:
+                ly_do_huy:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessMessage'
+          description: Thao tác thành công
+  /events/{id}:
+    get:
+      tags:
+        - Event Discovery
+      summary: Xem chi tiết sự kiện & Thẻ OpenGraph
+      description: |
+        - Ánh xạ: `UC-DISC-02`
+        - Trả về thông tin đầy đủ, trạng thái số vé, thông tin Host/Co-hosts, và định hướng trạng thái nút bấm thông minh (Smart Action Button State: `REGISTER`, `WAITLIST`, `ALREADY_REGISTERED`, `CLOSED_AT_T2H`).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/EventDetail'
+          description: Thao tác thành công
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /events/{id}/book:
+    post:
+      tags:
+        - Booking & Waitlist
+      summary: Đăng ký vé Concurrency (Khóa dòng Sinh viên & Chống trùng lịch cá nhân)
+      description: |
+        - Ánh xạ: `UC-BOOK-01`
+        - Bắt buộc tuân thủ Thứ tự Khóa Dòng 6 Cấp:
+          `tai_khoan (FOR UPDATE) -> su_kien (FOR UPDATE) -> dang_ky -> hang_doi_waitlist`.
+        - Kiểm tra chống trùng lịch cá nhân:
+          + Chặn tuyệt đối (Hard Block) nếu trùng khung giờ với sự kiện giới hạn slot khác đang có vé hợp lệ (`khong_gioi_han_slot = 0`).
+          + Cho phép nhưng kèm cảnh báo mềm (Soft Warning) nếu 1 trong 2 là sự kiện mở tự do.
+        - Khấu trừ nguyên tử `so_ve_con_lai = so_ve_con_lai - 1`.
+        - Ký mã vé bằng thuật toán HMAC-SHA256 bí mật.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Đăng ký vé thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Đăng ký vé tham dự thành công
+                  data:
+                    $ref: '#/components/schemas/Ticket'
+        '409':
+          description: Hết vé hoặc trùng lịch cá nhân
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /events/{id}/waitlist:
+    post:
+      tags:
+        - Booking & Waitlist
+      summary: Tham gia Hàng đợi Danh sách Chờ (Waitlist FIFO)
+      description: |
+        - Ánh xạ: `UC-BOOK-02`
+        - Chỉ áp dụng cho sự kiện giới hạn slot (`khong_gioi_han_slot = 0`) khi `so_ve_con_lai = 0`.
+        - Cổng đăng ký Waitlist đóng tại mốc $T-2\text{h}$.
+        - Cấp số thứ tự FIFO: `COALESCE(MAX(so_thu_tu), 0) + 1` được bảo vệ bởi khóa dòng `su_kien`.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Đã vào hàng đợi danh sách chờ
+                  data:
+                    type: object
+                    properties:
+                      so_thu_tu:
+                        type: integer
+                        example: 5
+                      trang_thai:
+                        type: string
+                        example: WAITING
+          description: Khởi tạo tài nguyên thành công
+  /waitlist/my-offers:
+    get:
+      tags:
+        - Booking & Waitlist
+      summary: Kiểm tra các suất vé chuyển tiếp đang được mời (Active Offers)
+      description: Ánh xạ `UC-BOOK-03`. Lấy danh sách các slot đang ở trạng thái `OFFERED` kèm hạn chót xác nhận.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WaitlistOffer'
+          description: Thao tác thành công
+  /waitlist/{id}/claim:
+    post:
+      tags:
+        - Booking & Waitlist
+      summary: Xác nhận nhận vé chuyển tiếp trong Claim Window
+      description: |
+        - Ánh xạ: `UC-BOOK-03`
+        - Thời hạn Claim Window: `han_chot_xac_nhan = min(NOW() + 60m, T - 2h)`.
+        - Kiểm tra lại trùng lịch cá nhân dưới khóa giao dịch.
+        - Khởi tạo vé `DaDangKy` chính thức kèm HMAC-SHA256, chuyển trạng thái waitlist sang `CLAIMED`.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Mã `ma_hang_doi`
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Nhận vé chuyển tiếp thành công
+                  data:
+                    $ref: '#/components/schemas/Ticket'
+          description: Thao tác thành công
+        '400':
+          description: Đã quá hạn Claim Window hoặc không hợp lệ
+  /tickets/my-tickets:
+    get:
+      tags:
+        - My Tickets & Cancellation
+      summary: Lấy danh sách vé tham dự của sinh viên
+      description: Ánh xạ `UC-TCK-01`.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: trang_thai
+          in: query
+          schema:
+            type: string
+            enum:
+              - DaDangKy
+              - DaCheckIn
+              - DaCheckOut
+              - DaHuy
+              - ViPhamNoShow
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Ticket'
+          description: Thao tác thành công
+  /tickets/{id}:
+    get:
+      tags:
+        - My Tickets & Cancellation
+      summary: Chi tiết vé cá nhân & Payload QR tích hợp Screen Wake Lock
+      description: Ánh xạ `UC-TCK-01`. Trả về chuỗi mã hóa vé HMAC-SHA256 để render mã QR tại app di động và chỉ dẫn giữ sáng màn hình.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TicketDetail'
+          description: Thao tác thành công
+  /tickets/{id}/cancel:
+    post:
+      tags:
+        - My Tickets & Cancellation
+      summary: Hủy vé cá nhân trước mốc T-4h (Khóa hủy vé tại T-4h)
+      description: |
+        - Ánh xạ: `UC-TCK-02`
+        - Ràng buộc bất biến cốt lõi: Chỉ cho phép hủy khi `NOW() < thoi_gian_bat_dau - 4h`.
+        - Cố tình hủy sau $T-4\text{h}$ trả về lỗi `400 CANNOT_CANCEL_WITHIN_4_HOURS`.
+        - Nếu thời gian còn lại đến $T-2\text{h} \ge 15\text{m}$ và có Waitlist: Chuyển người đầu tiên sang `OFFERED`.
+        - Nếu thời gian còn lại đến $T-2\text{h} < 15\text{m}$ và có Waitlist: Tăng suất đóng băng `so_slot_dong_bang = so_slot_dong_bang + 1` (chống chen ngang).
+        - Nếu không có Waitlist: Hoàn trả vào `so_ve_con_lai`.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessMessage'
+          description: Thao tác thành công
+        '400':
+          description: Đã qua mốc khóa hủy vé T-4h
+  /events/{id}/kiosk/start:
+    post:
+      tags:
+        - Attendance & Anti-Fraud
+      summary: Kích hoạt phiên trình chiếu Kiosk TOTP 30s tại hội trường
+      description: |
+        - Ánh xạ: `UC-OPS-01`
+        - Quản lý độc lập tại bảng `phien_kiosk`.
+        - Sinh `kiosk_session_token` và seed bí mật `totp_secret` (RFC 6238).
+        - Phiên Kiosk không bị đăng xuất khi BTC đăng nhập thiết bị khác.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      ma_phien:
+                        type: string
+                        example: kiosk_sess_abc123
+                      kiosk_token:
+                        type: string
+                        example: kiosk_tok_secret999
+                      thoi_gian_het_han:
+                        type: string
+                        format: date-time
+          description: Thao tác thành công
+  /kiosk/totp-stream:
+    get:
+      tags:
+        - Attendance & Anti-Fraud
+      summary: Lấy chuỗi mã TOTP xoay vòng mỗi 30s cho màn chiếu Kiosk
+      description: Yêu cầu Header `X-Kiosk-Token`. Sinh mã QR động thời gian thực hiển thị trên màn chiếu lớn.
+      security:
+        - KioskTokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      totp_code:
+                        type: string
+                        example: '847291'
+                      expires_in_seconds:
+                        type: integer
+                        example: 28
+          description: Thao tác thành công
+  /events/{id}/kiosk/open-checkout:
+    post:
+      tags:
+        - Attendance & Anti-Fraud
+      summary: Mở cổng Check-out sớm trước mốc T_end-25m (Cần Override Code & Lý do)
+      description: Cổng Check-out mặc định khóa cứng đến $T_{end}-25\text{m}$. Mở sớm bắt buộc nhập mã xác nhận và lưu nhật ký kiểm toán.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ma_xac_nhan
+                - ly_do_mo_som
+              properties:
+                ma_xac_nhan:
+                  type: string
+                ly_do_mo_som:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessMessage'
+          description: Thao tác thành công
+  /attendance/staff-scan:
+    post:
+      tags:
+        - Attendance & Anti-Fraud
+      summary: Soát vé Check-in tại Bàn đón tiếp qua Chữ ký số HMAC (< 2.0s)
+      description: |
+        - Ánh xạ: `UC-OPS-02`
+        - Dành cho Nhân viên soát vé (Staff) tại cổng.
+        - Giải mã chuỗi vé, kiểm tra `hash_equals()`, trả về thông tin sinh viên và cờ cảnh báo đối soát thẻ sinh viên nếu có nghi vấn.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ma_su_kien
+                - chuoi_qr_ve
+              properties:
+                ma_su_kien:
+                  type: integer
+                chuoi_qr_ve:
+                  type: string
+                  example: CEH-TICKET-22520001-HMAC_SIGNATURE_HERE
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      sinh_vien:
+                        type: object
+                        properties:
+                          ho_ten:
+                            type: string
+                            example: Nguyễn Văn An
+                          mssv:
+                            type: string
+                            example: '22520001'
+                          lop:
+                            type: string
+                            example: HTTT2022
+                      canh_bao_doi_soat_the_sv:
+                        type: boolean
+                        example: false
+                      trang_thai_ve:
+                        type: string
+                        example: DaCheckIn
+          description: Thao tác thành công
+  /attendance/self-check-in:
+    post:
+      tags:
+        - Attendance & Anti-Fraud
+      summary: Sinh viên tự quét mã Dynamic TOTP QR Check-in (Device Binding)
+      description: |
+        - Ánh xạ: `UC-OPS-03`
+        - Kiểm tra mã TOTP xoay vòng 30 giây (bù trễ mạng $\pm 1$ chu kỳ = tối đa 60s).
+        - Kiểm tra Device Binding: Bắt buộc gửi Header `X-Device-Id`. Nếu 1 thiết bị quét cho $\ge 2$ tài khoản trong cùng sự kiện, hệ thống gắn cờ `nghi_van_gian_lan = 1` và yêu cầu Staff đối soát thẻ sinh viên.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: X-Device-Id
+          in: header
+          required: true
+          schema:
+            type: string
+            example: device_fingerprint_uuid_123
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ma_su_kien
+                - totp_code
+              properties:
+                ma_su_kien:
+                  type: integer
+                totp_code:
+                  type: string
+                  example: '847291'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessMessage'
+          description: Thao tác thành công
+        '403':
+          description: Gian lận thiết bị hoặc sai mã TOTP
+  /attendance/self-check-out:
+    post:
+      tags:
+        - Attendance & Anti-Fraud
+      summary: Sinh viên tự quét Dynamic TOTP QR Check-out (Tính thời lượng thực tế Delta t)
+      description: |
+        - Ánh xạ: `UC-OPS-03`
+        - Công thức thời lượng tham gia:
+          `Delta t = min(CheckOut, ThoiGianKetThucThucTe) - max(CheckIn, ThoiGianBatDauKeHoach)`.
+        - Phân bậc ĐRL tự động:
+          + `Delta t >= 60%`: Hưởng 100% ĐRL.
+          + `30% <= Delta t < 60%`: Hưởng 50% ĐRL.
+          + `Delta t < 30%`: Hưởng 0% ĐRL.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: X-Device-Id
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ma_su_kien
+                - totp_code
+              properties:
+                ma_su_kien:
+                  type: integer
+                totp_code:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Điểm danh Check-out thành công
+                  data:
+                    type: object
+                    properties:
+                      thoi_luong_phut:
+                        type: integer
+                        example: 105
+                      ti_le_thoi_luong:
+                        type: number
+                        example: 0.875
+                      ti_le_drl:
+                        type: integer
+                        enum:
+                          - 0
+                          - 50
+                          - 100
+                        example: 100
+          description: Thao tác thành công
+  /attendance/manual-override:
+    post:
+      tags:
+        - Attendance & Anti-Fraud
+      summary: Điều chỉnh điểm danh thủ công & Xóa cờ No-show (Có Audit Log)
+      description: Ánh xạ `UC-OPS-04`. Dành cho BTC / Admin cứu xét sinh viên gặp sự cố. Bắt buộc nhập lý do, lưu vết `nhat_ky_diem_danh`.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ma_dang_ky
+                - trang_thai_moi
+                - ti_le_drl_moi
+                - ly_do
+              properties:
+                ma_dang_ky:
+                  type: integer
+                trang_thai_moi:
+                  type: string
+                  enum:
+                    - DaDangKy
+                    - DaCheckIn
+                    - DaCheckOut
+                ti_le_drl_moi:
+                  type: integer
+                  enum:
+                    - 0
+                    - 50
+                    - 100
+                xoa_co_no_show:
+                  type: boolean
+                  default: true
+                an_han_feedback_gio:
+                  type: integer
+                  default: 24
+                ly_do:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessMessage'
+          description: Thao tác thành công
+  /events/{id}/staff:
+    get:
+      tags:
+        - Attendance & Anti-Fraud
+      summary: Danh sách nhân viên soát vé (Staff) của sự kiện
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+          description: Thao tác thành công
+    post:
+      tags:
+        - Attendance & Anti-Fraud
+      summary: Phân công nhân viên soát vé theo sự kiện (Event-scoped Staff)
+      description: Ánh xạ `UC-OPS-05`. Gán quyền Staff cho tài khoản sinh viên chỉ trong phạm vi sự kiện này.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - mssv_or_email
+              properties:
+                mssv_or_email:
+                  type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessMessage'
+          description: Khởi tạo tài nguyên thành công
+  /events/{id}/feedback:
+    post:
+      tags:
+        - Feedback
+        - Certificate & DRL
+      summary: Nộp khảo sát đánh giá sự kiện (Hạn 48h & Ân hạn cá nhân)
+      description: |
+        - Ánh xạ: `UC-FEED-01`
+        - Điều kiện: Trạng thái vé là `DaCheckOut`.
+        - Ràng buộc thời gian: `NOW() <= thoi_gian_ket_thuc + 48h` hoặc `NOW() <= han_an_han_feedback`.
+        - Khảo sát ẩn danh (lưu tách rời thông tin định danh sinh viên qua View `v_feedback_an_danh`).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - diem_hai_long
+              properties:
+                diem_hai_long:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                  example: 5
+                y_kien_dong_gop:
+                  type: string
+                danh_gia_cong_tac_to_chuc:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                danh_gia_noi_dung:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessMessage'
+          description: Khởi tạo tài nguyên thành công
+        '400':
+          description: Đã quá hạn 48 giờ hoặc chưa hoàn thành Check-out
+  /certificates/my-certificates:
+    get:
+      tags:
+        - Feedback
+        - Certificate & DRL
+      summary: Lấy danh sách Giấy chứng nhận số của sinh viên
+      description: Ánh xạ `UC-CERT-01`.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Certificate'
+          description: Thao tác thành công
+  /certificates/verify/{hash}:
+    get:
+      tags:
+        - Feedback
+        - Certificate & DRL
+      summary: Tra cứu & Xác thực Giấy chứng nhận công khai (Che mờ PII Nghị định 13)
+      description: |
+        - Ánh xạ: `UC-CERT-01`
+        - Dành cho nhà tuyển dụng hoặc công chúng xác thực chữ ký HMAC-SHA256.
+        - Bắt buộc che mờ thông tin cá nhân: Họ tên `Nguyễn V** A`, MSSV `2252****`, tuyệt đối không để lộ email/SĐT.
+        - Trả về cờ `da_thu_hoi = 1` nếu chứng nhận đã bị Admin hủy bỏ.
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          description: Mã băm `ma_tra_cuu_hash`
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      ho_ten_che_mo:
+                        type: string
+                        example: Nguyễn V** A
+                      mssv_che_mo:
+                        type: string
+                        example: 2252****
+                      ten_su_kien:
+                        type: string
+                        example: Hội thảo AI trong Kỹ nghệ Phần mềm
+                      ngay_to_chuc:
+                        type: string
+                        format: date
+                      don_vi_to_chuc:
+                        type: string
+                        example: Khoa Hệ thống Thông tin
+                      diem_ren_luyen:
+                        type: integer
+                        example: 5
+                      da_thu_hoi:
+                        type: boolean
+                        example: false
+          description: Thao tác thành công
+  /admin/certificates/{id}/revoke:
+    post:
+      tags:
+        - Feedback
+        - Certificate & DRL
+      summary: Admin thu hồi Giấy chứng nhận số khi phát hiện vi phạm
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ly_do_thu_hoi
+              properties:
+                ly_do_thu_hoi:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessMessage'
+          description: Thao tác thành công
+  /events/{id}/drl:
+    get:
+      tags:
+        - Feedback
+        - Certificate & DRL
+      summary: Lấy danh sách điểm rèn luyện tổng hợp của sự kiện
+      description: Dựa trên Database View `v_danh_sach_drl`.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DrlRecord'
+          description: Thao tác thành công
+  /events/{id}/drl/lock:
+    post:
+      tags:
+        - Feedback
+        - Certificate & DRL
+      summary: Khóa chốt danh sách ĐRL & Kết xuất file chuẩn mẫu CTSV
+      description: Ánh xạ `UC-DRL-01`. Chốt sổ điểm rèn luyện, ngăn chặn chỉnh sửa thêm, xuất file Excel chuẩn.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Đã khóa chốt danh sách ĐRL
+                  data:
+                    type: object
+                    properties:
+                      file_export_url:
+                        type: string
+          description: Thao tác thành công
+  /organizer/events/{id}/analytics:
+    get:
+      tags:
+        - Reports & Notifications
+      summary: Dashboard phân tích sự kiện dành cho Ban tổ chức
+      description: Ánh xạ `UC-REP-01`. Thống kê tỷ lệ Show-up, biểu đồ dòng người Check-in/Check-out theo mốc 15 phút, tóm tắt điểm hài lòng feedback.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/OrganizerDashboard'
+          description: Thao tác thành công
+  /admin/analytics/macro:
+    get:
+      tags:
+        - Reports & Notifications
+      summary: Dashboard báo cáo chiến lược vĩ mô toàn trường cho P.CTSV
+      description: Ánh xạ `UC-REP-02`. Truy vấn hiệu năng cao (< 1.0s) dựa trên bảng tổng hợp ngày `thong_ke_su_kien_ngay`.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: hoc_ky
+          in: query
+          schema:
+            type: string
+            example: HK1_2026_2027
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/AdminMacroDashboard'
+          description: Thao tác thành công
+  /notifications:
+    get:
+      tags:
+        - Reports & Notifications
+      summary: Lấy danh sách thông báo in-app của người dùng
+      description: Ánh xạ `UC-NOTIF-01`.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: chua_doc
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+          description: Thao tác thành công
+  /notifications/{id}/read:
+    put:
+      tags:
+        - Reports & Notifications
+      summary: Đánh dấu thông báo đã đọc
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessMessage'
+          description: Thao tác thành công
+  /ai/organizer/generate-content:
+    post:
+      tags:
+        - AI Assistant
+      summary: Trợ lý Sáng tạo Nội dung Sự kiện cho Ban tổ chức (Copilot)
+      description: Ánh xạ `UC-AI-01`. Hỗ trợ gợi ý tiêu đề thu hút, mô tả chi tiết, bài đăng truyền thông Facebook Fanpage.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - chu_de
+                - muc_tieu
+              properties:
+                chu_de:
+                  type: string
+                  example: Workshop làm quen Docker và CI/CD cho sinh viên năm 2
+                muc_tieu:
+                  type: string
+                phong_cach:
+                  type: string
+                  enum:
+                    - HaoHuc
+                    - ChuyenNghiep
+                    - GanGui
+                  default: HaoHuc
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      tieu_de_goi_y:
+                        type: array
+                        items:
+                          type: string
+                      bai_viet_truyen_thong:
+                        type: string
+                      khung_chuong_trinh_du_kien:
+                        type: array
+                        items:
+                          type: string
+          description: Thao tác thành công
+  /ai/organizer/summarize-feedback:
+    post:
+      tags:
+        - AI Assistant
+      summary: Trợ lý Tóm tắt Phản hồi Sinh viên (Có lọc PII & Prompt Guardrails)
+      description: |
+        - Ánh xạ: `UC-AI-01`
+        - Bắt buộc lọc sạch PII (tên, MSSV, SĐT) trước khi chuyển tiếp cho LLM.
+        - Tích hợp System Prompt Guardrails chống Prompt Injection từ nội dung phản hồi ác ý của sinh viên.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: event_id
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      diem_hai_long_trung_binh:
+                        type: number
+                        example: 4.8
+                      cac_diem_khen_chinh:
+                        type: array
+                        items:
+                          type: string
+                      cac_diem_can_khac_phuc:
+                        type: array
+                        items:
+                          type: string
+                      de_xuat_hanh_dong:
+                        type: array
+                        items:
+                          type: string
+          description: Thao tác thành công
+  /ai/admin/text-to-insight:
+    post:
+      tags:
+        - AI Assistant
+      summary: Trợ lý Dữ liệu Quản trị BI Toàn trường (Text-to-Insight Read-Only)
+      description: |
+        - Ánh xạ: `UC-AI-02`
+        - Dành riêng cho Ban Giám hiệu / Phòng CTSV (`Admin`).
+        - Chuyển đổi câu hỏi tự nhiên thành truy vấn Read-only trên View an toàn `v_event_analytics`.
+        - Tài khoản CSDL riêng biệt, chỉ có quyền `SELECT`, timeout 3.0s, áp dụng `LIMIT 50`. Tuyệt đối không gửi PII sang LLM.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - cau_hoi_tu_nhien
+              properties:
+                cau_hoi_tu_nhien:
+                  type: string
+                  example: Khoa nào có tỷ lệ sinh viên tham gia sự kiện cao nhất trong học kỳ vừa qua?
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      cau_tra_loi_tom_tat:
+                        type: string
+                      bang_du_lieu:
+                        type: array
+                        items:
+                          type: object
+                      bieu_do_goi_y:
+                        type: string
+                        enum:
+                          - BarChart
+                          - LineChart
+                          - PieChart
+                          - Table
+          description: Thao tác thành công
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Bearer Token cấp từ Laravel Sanctum sau khi đăng nhập thành công.
+    KioskTokenAuth:
+      type: apiKey
+      in: header
+      name: X-Kiosk-Token
+      description: Token phiên trình chiếu hội trường được cấp từ bảng `phien_kiosk`.
+  responses:
+    ValidationError:
+      description: Dữ liệu gửi lên không vượt qua Form Request Validation (HTTP 422)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: string
+                example: VALIDATION_FAILED
+              message:
+                type: string
+                example: Dữ liệu không hợp lệ
+              errors:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: string
+    UnauthorizedError:
+      description: Chưa xác thực hoặc Token không hợp lệ (HTTP 401)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: string
+                example: UNAUTHORIZED
+              message:
+                type: string
+                example: Vui lòng đăng nhập để tiếp tục
+    ForbiddenError:
+      description: Không có quyền truy cập theo vai trò RBAC (HTTP 403)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: string
+                example: FORBIDDEN
+              message:
+                type: string
+                example: Bạn không có quyền thực hiện thao tác này
+    NotFoundError:
+      description: Bản ghi không tồn tại trong hệ thống (HTTP 404)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: string
+                example: NOT_FOUND
+              message:
+                type: string
+                example: Tài nguyên yêu cầu không tồn tại
+    BadRequestError:
+      description: Yêu cầu không hợp lệ hoặc vi phạm logic nghiệp vụ (HTTP 400)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    RateLimitError:
+      description: Vượt quá giới hạn tần suất gửi yêu cầu (HTTP 429)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: string
+                example: RATE_LIMIT_EXCEEDED
+              message:
+                type: string
+                example: Bạn đã thao tác quá nhanh. Vui lòng thử lại sau 60 giây.
+  schemas:
+    ApiSuccessMessage:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Thao tác thực hiện thành công
+    ApiError:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: BUSINESS_LOGIC_ERROR
+        message:
+          type: string
+          example: Thông báo chi tiết về lỗi phát sinh
+    PaginationMeta:
+      type: object
+      properties:
+        trang_hien_tai:
+          type: integer
+          example: 1
+        tong_so_trang:
+          type: integer
+          example: 5
+        tong_so_ban_ghi:
+          type: integer
+          example: 98
+        kich_thuoc_trang:
+          type: integer
+          example: 20
+    User:
+      type: object
+      properties:
+        ma_tai_khoan:
+          type: integer
+          example: 1
+        ho_ten:
+          type: string
+          example: Nguyễn Văn An
+        mssv:
+          type: string
+          example: '22520001'
+          nullable: true
+        email:
+          type: string
+          format: email
+          example: 22520001@gm.uit.edu.vn
+        vai_tro:
+          type: string
+          enum:
+            - SinhVien
+            - ToChuc
+            - Admin
+        so_dien_thoai:
+          type: string
+          nullable: true
+        lop_sinh_hoat:
+          type: string
+          nullable: true
+        ma_khoa:
+          type: integer
+          nullable: true
+        ma_don_vi_to_chuc:
+          type: integer
+          nullable: true
+        avatar_url:
+          type: string
+          nullable: true
+        hoat_dong:
+          type: boolean
+          example: true
+        thoi_gian_tao:
+          type: string
+          format: date-time
+    Organization:
+      type: object
+      properties:
+        ma_don_vi_to_chuc:
+          type: integer
+          example: 1
+        ma_don_vi_cha:
+          type: integer
+          nullable: true
+          example: null
+        ten_don_vi:
+          type: string
+          example: Khoa Hệ thống Thông tin
+        ma_dinh_danh:
+          type: string
+          example: KHOA_HTTT
+        loai_don_vi:
+          type: string
+          enum:
+            - CLB
+            - DoanHoi
+            - Khoa
+            - PhongBan
+        logo_url:
+          type: string
+          nullable: true
+        hoat_dong:
+          type: boolean
+          example: true
+    Room:
+      type: object
+      properties:
+        ma_phong:
+          type: integer
+          example: 1
+        ten_phong:
+          type: string
+          example: Hội trường A
+        vi_tri:
+          type: string
+          example: Tòa A - Tầng trệt
+        suc_chua_toi_da:
+          type: integer
+          example: 350
+        co_may_chieu:
+          type: boolean
+          example: true
+        co_am_thanh:
+          type: boolean
+          example: true
+        hoat_dong:
+          type: boolean
+          example: true
+    EventCard:
+      type: object
+      properties:
+        ma_su_kien:
+          type: integer
+          example: 101
+        ten_su_kien:
+          type: string
+          example: Hội thảo Ứng dụng Cloud Native trong Doanh nghiệp
+        anh_poster_url:
+          type: string
+          nullable: true
+        ten_chuyen_de:
+          type: string
+          example: Công nghệ Thông tin
+        ten_don_vi_host:
+          type: string
+          example: CLB WebDev UIT
+        ten_phong:
+          type: string
+          example: Hội trường B
+        thoi_gian_bat_dau:
+          type: string
+          format: date-time
+        thoi_gian_ket_thuc:
+          type: string
+          format: date-time
+        khong_gioi_han_slot:
+          type: boolean
+          example: false
+        so_ve_con_lai:
+          type: integer
+          example: 12
+        so_luong_toi_da:
+          type: integer
+          example: 100
+        trang_thai:
+          type: string
+          example: PUBLISHED
+        diem_ren_luyen:
+          type: integer
+          example: 5
+    EventDetail:
+      type: object
+      properties:
+        ma_su_kien:
+          type: integer
+          example: 101
+        ten_su_kien:
+          type: string
+          example: Hội thảo Ứng dụng Cloud Native trong Doanh nghiệp
+        mo_ta:
+          type: string
+        anh_poster_url:
+          type: string
+          nullable: true
+        don_vi_host:
+          $ref: '#/components/schemas/Organization'
+        danh_sach_dong_to_chuc:
+          type: array
+          items:
+            type: object
+            properties:
+              don_vi:
+                $ref: '#/components/schemas/Organization'
+              trang_thai:
+                type: string
+                enum:
+                  - CHO_XAC_NHAN
+                  - DONG_Y
+                  - TU_CHOI
+        phong:
+          $ref: '#/components/schemas/Room'
+        thoi_gian_bat_dau:
+          type: string
+          format: date-time
+        thoi_gian_ket_thuc:
+          type: string
+          format: date-time
+        han_chot_dang_ky:
+          type: string
+          format: date-time
+        khong_gioi_han_slot:
+          type: boolean
+          example: false
+        so_luong_toi_da:
+          type: integer
+          example: 100
+        so_ve_con_lai:
+          type: integer
+          example: 15
+        so_slot_dong_bang:
+          type: integer
+          example: 0
+        diem_ren_luyen:
+          type: integer
+          example: 5
+        trang_thai:
+          type: string
+          example: PUBLISHED
+        nut_bam_dieu_huong:
+          type: object
+          properties:
+            trang_thai_nut:
+              type: string
+              enum:
+                - DANG_KY
+                - VAO_WAITLIST
+                - DA_CO_VE
+                - DONG_DANG_KY_T2H
+                - HET_HAN
+            thong_diep_nut:
+              type: string
+              example: Đặt vé ngay
+            cho_phep_bam:
+              type: boolean
+              example: true
+    Ticket:
+      type: object
+      properties:
+        ma_dang_ky:
+          type: integer
+          example: 501
+        ma_su_kien:
+          type: integer
+          example: 101
+        ten_su_kien:
+          type: string
+          example: Hội thảo Ứng dụng Cloud Native
+        thoi_gian_bat_dau:
+          type: string
+          format: date-time
+        ten_phong:
+          type: string
+          example: Hội trường B
+        trang_thai:
+          type: string
+          enum:
+            - DaDangKy
+            - DaCheckIn
+            - DaCheckOut
+            - DaHuy
+            - ViPhamNoShow
+        cho_phep_huy:
+          type: boolean
+          example: true
+          description: True nếu NOW < thoi_gian_bat_dau - 4h
+        chuoi_ky_so_hmac:
+          type: string
+          example: CEH-TICKET-22520001-f8a12c3e4b
+    TicketDetail:
+      allOf:
+        - $ref: '#/components/schemas/Ticket'
+        - type: object
+          properties:
+            payload_qr:
+              type: string
+              example: CEH-TICKET-22520001-f8a12c3e4b
+            yeu_cau_wake_lock:
+              type: boolean
+              example: true
+            thoi_gian_check_in:
+              type: string
+              format: date-time
+              nullable: true
+            thoi_gian_check_out:
+              type: string
+              format: date-time
+              nullable: true
+            ti_le_drl:
+              type: integer
+              example: 100
+    WaitlistOffer:
+      type: object
+      properties:
+        ma_hang_doi:
+          type: integer
+          example: 78
+        ma_su_kien:
+          type: integer
+          example: 101
+        ten_su_kien:
+          type: string
+          example: Workshop React 19
+        han_chot_xac_nhan:
+          type: string
+          format: date-time
+          example: '2026-10-25T13:45:00Z'
+        so_giay_con_lai:
+          type: integer
+          example: 2400
+    Certificate:
+      type: object
+      properties:
+        ma_chung_nhan:
+          type: integer
+          example: 301
+        ten_su_kien:
+          type: string
+          example: Hội thảo Cloud Native
+        ngay_cap:
+          type: string
+          format: date
+        ma_tra_cuu_hash:
+          type: string
+          example: cert_sha256_abcdef123456
+        diem_ren_luyen:
+          type: integer
+          example: 5
+        file_pdf_url:
+          type: string
+        da_thu_hoi:
+          type: boolean
+          example: false
+    DrlRecord:
+      type: object
+      properties:
+        mssv:
+          type: string
+          example: '22520001'
+        ho_ten:
+          type: string
+          example: Nguyễn Văn An
+        lop:
+          type: string
+          example: HTTT2022
+        thoi_gian_check_in:
+          type: string
+          format: date-time
+        thoi_gian_check_out:
+          type: string
+          format: date-time
+        thoi_luong_phut:
+          type: integer
+          example: 110
+        ti_le_drl:
+          type: integer
+          example: 100
+        diem_nhan_duoc:
+          type: integer
+          example: 5
+        da_lam_feedback:
+          type: boolean
+          example: true
+    OrganizerDashboard:
+      type: object
+      properties:
+        tong_ve_dang_ky:
+          type: integer
+          example: 100
+        so_luong_check_in:
+          type: integer
+          example: 92
+        so_luong_check_out:
+          type: integer
+          example: 88
+        ty_le_show_up:
+          type: number
+          example: 0.92
+        so_luong_no_show:
+          type: integer
+          example: 8
+        diem_hai_long_trung_binh:
+          type: number
+          example: 4.7
+    AdminMacroDashboard:
+      type: object
+      properties:
+        tong_so_su_kien:
+          type: integer
+          example: 45
+        tong_luot_sinh_vien_tham_gia:
+          type: integer
+          example: 3420
+        ty_le_show_up_toan_truong:
+          type: number
+          example: 0.89
+        top_don_vi_hoat_dong_tich_cuc:
+          type: array
+          items:
+            type: object
+            properties:
+              ten_don_vi:
+                type: string
+              so_su_kien:
+                type: integer
+        danh_sach_tai_pham_no_show:
+          type: array
+          items:
+            type: object
+            properties:
+              mssv:
+                type: string
+              ho_ten:
+                type: string
+              so_lan_vi_pham:
+                type: integer
+    Notification:
+      type: object
+      properties:
+        ma_thong_bao:
+          type: integer
+          example: 12
+        tieu_de:
+          type: string
+          example: 'Nhắc nhở: Sự kiện diễn ra trong 24h tới'
+        noi_dung:
+          type: string
+        loai_thong_bao:
+          type: string
+          enum:
+            - NHAC_LICH
+            - KET_QUA_DUYET
+            - HUY_SU_KIEN
+            - WAITLIST_OFFER
+            - CANH_BAO_NO_SHOW
+        da_doc:
+          type: boolean
+          example: false
+        thoi_gian_tao:
+          type: string
+          format: date-time
